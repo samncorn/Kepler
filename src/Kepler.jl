@@ -1,4 +1,4 @@
-module UniversalVariable
+module Kepler
 
 using LinearAlgebra
 
@@ -6,7 +6,9 @@ using LinearAlgebra
 include("root-finding.jl")
 include("stumpff.jl")
 
-function kepler_uv(pos0, vel0, dt, gm; max_iter = 20, anomaly_tol = 1e-8, parabolic_tol = 1e-6)
+""" 
+"""
+function propagate(pos0, vel0, dt, gm; max_iter = 20, anomaly_tol = 1e-8, parabolic_tol = 1e-6)
     if dt == 0
         return (pos0, vel0)
     end
@@ -37,8 +39,6 @@ function kepler_uv(pos0, vel0, dt, gm; max_iter = 20, anomaly_tol = 1e-8, parabo
     f2 = x -> (x[1] - dt, x[2:end]...)
     f = x -> f2(f1(x))
     s, n_iter = newton2(f, s0, anomaly_tol, max_iter)
-
-    println("n iter: $(n_iter)")
 
     if n_iter >= max_iter
         @warn "kepler solverer failed to converge"
