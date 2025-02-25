@@ -1,7 +1,7 @@
 name = "Kepler"
 uuid = "adce7ac5-41de-41eb-81d7-62287823a1c6"
 authors = ["Samuel Cornwall"]
-version = "0.1.0"
+version = "0.1.1"
 
 [deps]
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
