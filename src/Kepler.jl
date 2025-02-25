@@ -43,7 +43,16 @@ function propagate(pos0, vel0, dt, gm; max_iter = 20, anomaly_tol = 1e-8, parabo
     s, n_iter = newton2(f, s0, anomaly_tol, max_iter)
 
     if n_iter >= max_iter
-        @warn "kepler solverer failed to converge"
+        H = cross(pos0, vel0)
+        E = cross(vel0, H)/gm - pos0/r0
+        ecc = norm(E)
+        @warn @sprintf "kepler solverer failed to converge after %i iterations" n_iter
+        @warn @sprintf "position: %.7e %.7e %.7e" pos0...
+        @warn @sprintf "velocity: %.7e %.7e %.7e" vel0...
+        @warn @sprintf "gm: %.7e" gm
+        @warn @sprintf "dt: %.7e" dt
+        @warn @sprintf "α : %.7e" alpha
+        @warn @sprintf "e : %.7e" ecc
         return NaN*pos0, NaN*vel0
     end
 
