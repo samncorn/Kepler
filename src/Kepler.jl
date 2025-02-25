@@ -1,6 +1,7 @@
 module Kepler
 
 using LinearAlgebra
+using Printf
 
 # Write your package code here.
 include("root-finding.jl")
