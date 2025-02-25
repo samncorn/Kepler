@@ -7,8 +7,10 @@ include("root-finding.jl")
 include("stumpff.jl")
 
 """ 
+Keplerian orbit evolution. Uses the universal variable formaulation from Danby, with initial guesses from Vallado, and
+modification to the stumpff functions from Wisdam + Hernandez 2015
 """
-function propagate(pos0, vel0, dt, gm; max_iter = 20, anomaly_tol = 1e-8, parabolic_tol = 1e-6)
+function propagate(pos0, vel0, dt, gm; max_iter = 20, anomaly_tol = 1e-8, parabolic_tol = 1e-12)
     if dt == 0
         return (pos0, vel0)
     end
