@@ -11,13 +11,13 @@ include("stumpff.jl")
 Keplerian orbit evolution. Uses the universal variable formaulation from Danby, with initial guesses from Vallado, and
 modification to the stumpff functions from Wisdam + Hernandez 2015
 """
-function propagate(pos0, vel0, dt, gm; max_iter = 20, anomaly_tol = 1e-8, parabolic_tol = 1e-12)
+function solve(pos0, vel0, dt, gm; max_iter = 20, anomaly_tol = 1e-8, parabolic_tol = 1e-12)
     if dt == 0
         return (pos0, vel0)
     end
 
     r0  = norm(pos0)
-    dr0 = dot(vel0, normalize(pos0))
+    dr0 = dot(vel0, pos0) / r0
     v02 = dot(vel0, vel0)
     alpha = 2/r0 - v02/gm
 
@@ -33,14 +33,14 @@ function propagate(pos0, vel0, dt, gm; max_iter = 20, anomaly_tol = 1e-8, parabo
         h = cross(pos0, vel0)
         p = dot(h, h) / gm
         s = 0.5acot(3sqrt(gm/p^3)*dt)
-        w = atan((tan(s))^(1/3))
+        w = atan(tan(s)^(1/3))
         2sqrt(p)*cot(2w)
     end
 
-    f1 = x -> universal_kepler4(x, alpha, r0, dr0, gm)
+    f1 = x -> universal_kepler3(x, alpha, r0, dr0, gm)
     f2 = x -> (x[1] - dt, x[2:end]...)
-    f = x -> f2(f1(x))
-    s, n_iter = newton4(f, s0, anomaly_tol, max_iter)
+    f  = x -> f2(f1(x))
+    s, n_iter = laguerre(f, s0, anomaly_tol, max_iter)
 
     if n_iter >= max_iter
         H = cross(pos0, vel0)
@@ -88,16 +88,19 @@ function universal_kepler3(s, alpha, r0, dr0, k)
     c0, c1, c2, c3 = stumpff(alpha*s^2)
     dt = r0*s*c1 + r0*dr0*s^2*c2 + k*s^3*c3
     d1 = r0*c0 + r0*dr0*s*c1 + k*s^2*c2
-    d2 = (-r0*alpha + gm)*s*c1 + r0*dr0*c0
+    # d2 = (-r0*alpha + k)*s*c1 + r0*dr0*c0
+    d2 = r0*dr0*c0 + k*(1 - alpha*r0)*s*c1
     return dt, d1, d2
 end
 
 function universal_kepler4(s, alpha, r0, dr0, k)
     c0, c1, c2, c3 = stumpff(alpha*s^2)
     dt = r0*s*c1 + r0*dr0*s^2*c2 + k*s^3*c3
-    d1 = r0*c0 + r0*dr0*c1 + k*c2
-    d2 = (-r0*alpha + gm)*s*c1 + r0*dr0*c0
-    d3 = (-r0*alpha + gm)*c0 - r0*dr0*alpha*s*c1
+    d1 = r0*c0 + r0*dr0*s*c1 + k*s^2*c2
+    # d2 = (-r0*alpha + k)*s*c1 + r0*dr0*c0
+    d2 = r0*dr0*c0 + k*(1 - alpha*r0)*s*c1
+    # d3 = (-r0*alpha + k)*c0 - r0*dr0*alpha*s*c1
+    d3 = k*((1 - alpha*r0)*c0 - alpha*r0*dr0*s*c1)
     return dt, d1, d2, d3
 end
 

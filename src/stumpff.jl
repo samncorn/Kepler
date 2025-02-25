@@ -18,7 +18,7 @@ function stumpff(z)
     else
         c1 = 1/2
         c2 = 1/6
-        c3 = 1 - z*c3
+        c3 = 1 - z*c1
         c0 = 1 - z*c2
         return c0, c1, c2, c3
     end
