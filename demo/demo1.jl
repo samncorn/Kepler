@@ -19,26 +19,27 @@ for _ in 1:50
     vel = sqrt(gm*(e/q + 1))*SVector{3, Float64}([0.0, 1.0, 0.0])
     t = rand()
     
+    h = norm(cross(pos, vel))
 
     posf, velf = Kepler.solve(pos, vel, t, gm; anomaly_tol = 1e-8, max_iter = 1000)
     state = prop2b(gm, [pos..., vel...], t)
     posf2 = state[1:3]
     velf2 = state[4:6]
 
-    # hf  = norm(cross(posf, velf))
-    # hf2 = norm(cross(posf2, velf2))
-    # @printf "h error: %.3e\n" (hf - h)/h
-    # @printf "spice h error: %.3e\n" (hf2 - h)/h
+    hf  = norm(cross(posf, velf))
+    hf2 = norm(cross(posf2, velf2))
+    @printf "h error: %.3e\n" (hf - h)/h
+    @printf "spice h error: %.3e\n" (hf2 - h)/h
 
-    # r0 = norm(pos)
-    # v02 = dot(vel, vel)
-    # b = 2gm/r0 - v02
-    # @printf "b: %.3f\n" b
-    # @printf "a: %.3f\n" gm/b
+    r0 = norm(pos)
+    v02 = dot(vel, vel)
+    b = 2gm/r0 - v02
+    @printf "b: %.3f\n" b
+    @printf "a: %.3f\n" gm/b
 
-    # @printf "pos: %.3e, %.3e, %.3e\n" (posf - posf2)...
-    # @printf "vel: %.3e, %.3e, %.3e\n" (velf - velf2)...
-    # println()
+    @printf "pos: %.3e, %.3e, %.3e\n" (posf - posf2)...
+    @printf "vel: %.3e, %.3e, %.3e\n" (velf - velf2)...
+    println()
 end
 
 failed = []
