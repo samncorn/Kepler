@@ -1,3 +1,5 @@
+@enum root_result found_root bracket_error convergence_error
+
 """ f must return the appropriate amount of derivatives for next_term
 """
 function root_solve(next_term, f, x0, tol, max_iter)
@@ -55,3 +57,28 @@ function laguerre(f, x0, tol, max_iter; n = 5)
     end
     return x, i
 end
+
+function _bracket_root(method, f, bracket, tol, max_iter)
+    # check the bracket, if no root return failure
+    if sign(f(bracket[1])) == sign(f(bracket[2]))
+        return bracket_err, bracket[1]
+    end
+
+    iter = 0
+    err  = abs(bracket[1] - bracket[2])
+
+    while err > tol && iter < max_iter
+        # cubic spline the inverse
+        x = 
+    
+        err   = abs(bracket[1] - bracket[2])
+        iter += 1
+    end
+    return found_root, x
+end
+
+function _newton_bracket_2()
+
+end
+
+newton_bracket_2(f, bracket, tol, max_iter) = _bracket_root(_newton_bracket_2, f, bracket, tol, max_iter)
