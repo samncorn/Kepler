@@ -12,9 +12,12 @@ include("stumpff.jl")
 Keplerian orbit evolution. Uses the universal variable formaulation from Danby, with initial guesses from Vallado, and
 modification to the stumpff functions from Wisdam + Hernandez 2015
 """
-function solve(pos0, vel0, dt, gm; max_iter = 20, anomaly_tol = 1e-8, parabolic_tol = 1e-12)
+function solve(pos0, vel0, dt, gm; max_iter = 20, parabolic_tol = 1e-6)
     if dt == 0
         return (pos0, vel0)
+    elseif dt < 0 # THE STUPID GUESS DOESNT WORK FOR BACKWARDS TIME
+        posf, velf = solve(pos0, -vel0, -dt, gm; max_iter = max_iter, parabolic_tol = parabolic_tol)
+        return posf, -velf
     end
 
     r0  = norm(pos0)
@@ -22,13 +25,21 @@ function solve(pos0, vel0, dt, gm; max_iter = 20, anomaly_tol = 1e-8, parabolic_
     v02 = dot(vel0, vel0)
     alpha = 2gm/r0 - v02
 
-    # solve the cubic
-    # what if multiple real roots?
-    s = begin # if abs(alpha) > parabolic_tol # elliptic or hyperbolic, use the simple bracketing 
-        Hvec = cross(pos0, vel0)
-        Evec = cross(vel0, Hvec)/gm - pos0/r0
-        e = norm(Evec)
+    Hvec = cross(pos0, vel0)
+    Evec = cross(vel0, Hvec)/gm - pos0/r0
+    e = norm(Evec)
+
+    # s = dt*alpha/(gm*(1 - e))
+    s = if alpha > parabolic_tol # elliptic or parabolic, use simple bracketing 
         dt*alpha/(gm*(1 - e))
+    else
+        # trying new hyperbolic guess 
+        k  = 1.8
+        dM = sqrt(-gm*alpha^3)*dt
+        CH = 1 - r0*alpha
+        SH = r0*dr0*sqrt(-alpha/gm)
+        dF = dM > 0 ? log((2dM + k*e)/(CH + SH)) : log((-2dM + k*e)/(CH - SH)) 
+        dF / sqrt(-alpha)
     end
     # else # 
     #     a0 = -6dt/gm

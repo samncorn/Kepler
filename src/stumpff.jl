@@ -31,10 +31,14 @@ function stumpff(z)
     end
 
     while n > 0
-        c3 = (c2 + c0*c3)/4
-        c2 = c1^2/2
-        c1 = c0*c1
-        c0 = 2c0^2 - 1
+        c32 = (c2 + c0*c3)/4
+        c22 = (c1^2)/2
+        c12 = c0*c1
+        c02 = 2(c0^2) - 1
+        c0 = c02
+        c1 = c12
+        c2 = c22
+        c3 = c32
         n -= 1
     end
 
