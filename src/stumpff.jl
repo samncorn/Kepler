@@ -5,6 +5,7 @@ function stumpff(z)
         n += 1
     end
 
+    @debug "$(n) folds tor reduce z to $(z)"
     c0, c1, c2, c3 = if z > 0
         sin2 = sin(0.5sqrt(z))
         cos2 = cos(0.5sqrt(z))
