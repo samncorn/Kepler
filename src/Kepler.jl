@@ -30,7 +30,7 @@ function solve(pos0, vel0, dt, gm; max_iter = 20, parabolic_tol = 1e-6)
     e = norm(Evec)
 
     # s = dt*alpha/(gm*(1 - e))
-    s = if alpha > parabolic_tol # elliptic or parabolic, use simple bracketing 
+    s = if alpha > -parabolic_tol # elliptic or parabolic, use simple bracketing 
         dt*alpha/(gm*(1 - e))
     else
         # trying new hyperbolic guess 
