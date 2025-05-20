@@ -1,11 +1,9 @@
 function stumpff(z)
-    n = 0
-    while abs(z) > 10.0
-        z /= 4
-        n += 1
-    end
-
-    @debug "$(n) folds tor reduce z to $(z)"
+    # n = 0
+    # while abs(z) > 10.0
+    #     z /= 4
+    #     n += 1
+    # end
     c0, c1, c2, c3 = if z > 0
         sin2 = sin(0.5sqrt(z))
         cos2 = cos(0.5sqrt(z))
@@ -30,17 +28,17 @@ function stumpff(z)
         c0, c1, c2, c3
     end
 
-    while n > 0
-        c32 = (c2 + c0*c3)/4
-        c22 = (c1^2)/2
-        c12 = c0*c1
-        c02 = 2(c0^2) - 1
-        c0 = c02
-        c1 = c12
-        c2 = c22
-        c3 = c32
-        n -= 1
-    end
+    # while n > 0
+    #     c32 = (c2 + c0*c3)/4
+    #     c22 = (c1^2)/2
+    #     c12 = c0*c1
+    #     c02 = 2(c0^2) - 1
+    #     c0 = c02
+    #     c1 = c12
+    #     c2 = c22
+    #     c3 = c32
+    #     n -= 1
+    # end
 
     return c0, c1, c2, c3
 end
