@@ -21,10 +21,10 @@ function stumpff(z)
         c0 = 1 - z*c2
         c0, c1, c2, c3
     else
-        c1 = 1/2
-        c2 = 1/6
-        c3 = 1 - z*c1
-        c0 = 1 - z*c2
+        c1 = 1.0
+        c2 = 1/2
+        c3 = 1/6
+        c0 = 1.0
         c0, c1, c2, c3
     end
 
