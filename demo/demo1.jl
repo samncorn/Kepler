@@ -3,8 +3,12 @@ using StaticArrays
 using LinearAlgebra
 using Printf
 using SPICE
+using Logging
 using CairoMakie
 # using GLMakie
+
+debug_logger = ConsoleLogger(stderr, Logging.Debug)
+global_logger(debug_logger)
 
 pos0 = @SVector [1.0, 0.0, 0.0]
 vel0 = @SVector [0.0, 1.0, 0.0]
@@ -21,10 +25,12 @@ for _ in 1:50
     
     h = norm(cross(pos, vel))
 
-    posf, velf = Kepler.solve(pos, vel, t, gm; anomaly_tol = 1e-8, max_iter = 1000)
+    posf, velf = Kepler.solve(pos, vel, t, gm; max_iter = 1_000, tol = 1e-15)
     state = prop2b(gm, [pos..., vel...], t)
     posf2 = state[1:3]
     velf2 = state[4:6]
+
+    @info "eccentricty: $(e)"
 
     hf  = norm(cross(posf, velf))
     hf2 = norm(cross(posf2, velf2))
@@ -54,12 +60,19 @@ for _ in 1:1_000_000
     pos = q*SVector{3, Float64}([1.0, 0.0, 0.0])
     vel = sqrt(gm*(e/q + 1))*SVector{3, Float64}([0.0, 1.0, 0.0])
 
-    posf, velf = Kepler.solve(pos, vel, t, gm; anomaly_tol = 1e-8, max_iter = 1000)
-    
-    if any(isnan.(posf))
-        push!(failed, (q, e))
-    else
-        push!(succeeded, (q, e))
+    try
+        posf, velf = Kepler.solve(pos, vel, t, gm; max_iter = 1_000)
+        
+        if any(isnan.(posf))
+            push!(failed, (q, e))
+        else
+            push!(succeeded, (q, e))
+        end
+    catch err
+        @info "q: $(q)"
+        @info "e: $(e)"
+        # @info ""
+        throw(err)
     end
 end
 
@@ -129,12 +142,18 @@ for _ in 1:100_000
     e = norm(E)
     q = a*(1 - e)
 
-    posf, velf = Kepler.solve(pos, vel, t, gm; anomaly_tol = 1e-8, max_iter = 100)
-    
-    if any(isnan.(posf))
-        push!(failed, (q, e))
-    else
-        push!(succeeded, (q, e))
+    try
+        posf, velf = Kepler.solve(pos, vel, t, gm; anomaly_tol = 1e-8, max_iter = 100)
+        
+        if any(isnan.(posf))
+            push!(failed, (q, e))
+        else
+            push!(succeeded, (q, e))
+        end
+    catch e
+        @info "a: $(a)"
+        # @info ""
+        throw(e)
     end
 end
 

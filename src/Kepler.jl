@@ -12,7 +12,7 @@ include("stumpff.jl")
 Keplerian orbit evolution. Uses the universal variable formaulation from Danby, with initial guesses from Vallado, and
 modification to the stumpff functions from Wisdam + Hernandez 2015
 """
-function solve(pos0::AbstractVector{T}, vel0::AbstractVector{T}, dt::T, gm::T; max_iter = 20, parabolic_tol = 1e-6) where {T}
+function solve(pos0::AbstractVector{T}, vel0::AbstractVector{T}, dt::T, gm::T; max_iter = 20, parabolic_tol = 1e-6, tol = 1e-12) where {T}
     if dt == 0
         return (pos0, vel0)
     elseif dt < 0 # THE STUPID GUESS DOESNT WORK FOR BACKWARDS TIME
@@ -84,8 +84,15 @@ function solve(pos0::AbstractVector{T}, vel0::AbstractVector{T}, dt::T, gm::T; m
     @assert 0 < s < typemax(T)
 
     bracket = (br, s)
-    s = find_zero(s -> universal_kepler(s, alpha, r0, dr0, gm) - dt, bracket, A42())
-    # s = 
+    # s = find_zero(x -> universal_kepler(x, alpha, r0, dr0, gm) - dt, bracket, A42())
+
+    # chain some closure together
+    _f = x -> universal_kepler2(x, alpha, r0, dr0, gm)
+    _g = x -> (x[1] - dt, x[2])
+    _h = x -> _g(_f(x))
+    s = find_root_ics(_h, bracket; max_iters = max_iter, tol = tol)
+
+    @debug "s: $(s)"
 
     _, c1, c2, c3 = stumpff(alpha*s^2)
 
@@ -111,14 +118,14 @@ end
 function universal_kepler2(s, alpha, r0, dr0, gm)
     c0, c1, c2, c3 = stumpff(alpha*s^2)
     dt = r0*s*c1 + r0*dr0*s^2*c2 + gm*s^3*c3
-    r  = r0*c0 + r0*dr0*s*c1 + gm*s^2*c2
+    r  = r0*c0   + r0*dr0*s*c1   + gm*s^2*c2
     return dt, r
 end
 
 function universal_kepler3(s, alpha, r0, dr0, gm)
     c0, c1, c2, c3 = stumpff(alpha*s^2)
     dt = r0*s*c1 + r0*dr0*s^2*c2 + gm*s^3*c3
-    r  = r0*c0 + r0*dr0*s*c1 + gm*s^2*c2
+    r  = r0*c0   + r0*dr0*s*c1   + gm*s^2*c2
     dr = (-r0*alpha + gm)*s*c1 + r0*dr0*c0
     # dr = r0*dr0*c0 + gm*(1 - alpha*r0)*s*c1
     return dt, r, dr
@@ -127,9 +134,9 @@ end
 function universal_kepler4(s, alpha, r0, dr0, gm)
     c0, c1, c2, c3 = stumpff(alpha*s^2)
     dt  = r0*s*c1 + r0*dr0*s^2*c2 + gm*s^3*c3
-    r   = r0*c0 + r0*dr0*s*c1 + gm*s^2*c2
+    r   = r0*c0   + r0*dr0*s*c1   + gm*s^2*c2
     dr  = (-r0*alpha + gm)*s*c1 + r0*dr0*c0
-    ddr = (-r0*alpha + gm)*c0 - r0*dr0*alpha*s*c1
+    ddr = (-r0*alpha + gm)*c0   - r0*dr0*alpha*s*c1
     # ddr = k*((1 - alpha*r0)*c0 - alpha*r0*dr0*s*c1)
     return dt, r, dr, ddr
 end
