@@ -29,7 +29,7 @@ function find_root_ics(f, br; max_iters = 1000, tol = 1e-15, btol = 1e-8)
     # xpp = Inf # x n-2
     dx1 = abs(a - b)
     dx2 = dx1
-    max_iters = ceil(Int, (log2(tol/dx1))^2)
+    max_iters = ceil(Int, log2(tol/dx1))^2
     @debug "estimated maximum $(max_iters) iterations to converge"
     # bs  = false # whether to use bisection
     bs = false # whatever the last step used

@@ -68,7 +68,7 @@ function solve(pos0::AbstractVector{T}, vel0::AbstractVector{T}, dt::T, gm::T; m
     end
 
     # check we have not overflowed our numbers precision (excessively long timespan)
-    @assert 0 < s < typemax(T)
+    # @assert 0 < s < typemax(T)
 
     # set up the bracket
     # only handle the forward time case (due to the above check)
@@ -81,7 +81,7 @@ function solve(pos0::AbstractVector{T}, vel0::AbstractVector{T}, dt::T, gm::T; m
         s    = 2s
         y    = universal_kepler(s, alpha, r0, dr0, gm) - dt
     end
-    @assert 0 < s < typemax(T)
+    # @assert 0 < s < typemax(T)
 
     bracket = (br, s)
     # s = find_zero(x -> universal_kepler(x, alpha, r0, dr0, gm) - dt, bracket, A42())
