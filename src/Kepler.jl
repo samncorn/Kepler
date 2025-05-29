@@ -32,7 +32,7 @@ function solve(pos0::AbstractVector{T}, vel0::AbstractVector{T}, dt::T, gm::T; m
     # initial guesses from Danby.
 
     s = if abs(alpha/gm) < parabolic_tol # (near) parabolic case
-        @debug "(near) parabolic orbit (alpha = $(alpha))"
+        # @debug "(near) parabolic orbit (alpha = $(alpha))"
         # solve the cubic solution to the parabolic case
         # a0 = -6dt/gm
         # a1 = 6r0/gm
@@ -54,11 +54,11 @@ function solve(pos0::AbstractVector{T}, vel0::AbstractVector{T}, dt::T, gm::T; m
         w = atan(tan(s)^(1/3))
         2sqrt(p)*cot(2w)/sqrt(gm)
     elseif alpha > 0.0 # elliptic
-        @debug "elliptic orbit (alpha = $(alpha))"
+        # @debug "elliptic orbit (alpha = $(alpha))"
         dt*alpha/(gm*(1 - e))
     else # hyperbolic
         # trying new hyperbolic guess 
-        @debug "hyperbolic orbit (alpha = $(alpha))"
+        # @debug "hyperbolic orbit (alpha = $(alpha))"
         k  = 1.8
         dM = sqrt(-gm*alpha^3)*dt
         CH = 1 - r0*alpha
@@ -92,7 +92,7 @@ function solve(pos0::AbstractVector{T}, vel0::AbstractVector{T}, dt::T, gm::T; m
     _h = x -> _g(_f(x))
     s = find_root_ics(_h, bracket; max_iters = max_iter, tol = tol)
 
-    @debug "s: $(s)"
+    # @debug "s: $(s)"
 
     _, c1, c2, c3 = stumpff(alpha*s^2)
 

@@ -4,15 +4,17 @@ using LinearAlgebra
 using Printf
 using SPICE
 using Logging
-using CairoMakie
+using BenchmarkTools
+# using CairoMakie
 # using GLMakie
 
-debug_logger = ConsoleLogger(stderr, Logging.Debug)
-global_logger(debug_logger)
+# debug_logger = ConsoleLogger(stderr, Logging.Debug)
+# global_logger(debug_logger)
 
 pos0 = @SVector [1.0, 0.0, 0.0]
 vel0 = @SVector [0.0, 1.0, 0.0]
 posf, velf = Kepler.solve(pos0, vel0, pi/2, 1.0)
+@btime Kepler.solve($pos0, $vel0, pi/2, 1.0)
 
 for _ in 1:50
     q = rand()
