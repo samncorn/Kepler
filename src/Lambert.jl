@@ -42,7 +42,7 @@ function lambert_solve(pos1, pos2, dt, gm; de = High, dm = Short, n::Int = 0, ma
     _ddt(x)  = Enzyme.gradient(ForwardWithPrimal, _dt, x)
     _dddt(x) = Enzyme.gradient(ForwardWithPrimal, _ddt, x)
 
-    z1, z2 = lambert_find_bracket(A, r1, r2, gm, dt; n = 0, de = High)
+    z1, z2 = lambert_find_bracket(A, r1, r2, gm, dt; n = 0, de = de, dm = dm)
     # we now have a bracket around a single root, although one end is asymptotic, so we need to bisect until we have a 
     # complete bracket
     # we also need to check if we accidentally found our root with the bracket
@@ -174,7 +174,7 @@ function lambert_solve(pos1, pos2, dt, gm; de = High, dm = Short, n::Int = 0, ma
     return vel1, vel2
 end
 
-function lambert_find_bracket(A, r1, r2, gm, dt; n = 0, de = High, tol = 1e-12, max_iter = 100)
+function lambert_find_bracket(A, r1, r2, gm, dt; n = 0, de = High, dm = Short, tol = 1e-12, max_iter = 100)
     @assert n >= 0
     z1 = n == 0 ? -4*pi : (2*n*pi)^2
     z2 = (2*(n + 1)*pi)^2
@@ -186,21 +186,25 @@ function lambert_find_bracket(A, r1, r2, gm, dt; n = 0, de = High, tol = 1e-12, 
     # establish either an upper or lower defined (non-asymptotic) bound 
     if n == 0
         # zero-rev, find lower bound
-        bracketed = false
-        while !bracketed
-            _, _, c2, c3 = stumpff(z1)
-            y = r1 + r2 + A*(z1*c3 - 1)/sqrt(c2)
-
-            if (A > 0 && y < 0)
-                z1 *= 0.5
+        if dm == Short
+            z1 = 0.0
+        else
+            bracketed = false
+            while !bracketed
                 _, _, c2, c3 = stumpff(z1)
                 y = r1 + r2 + A*(z1*c3 - 1)/sqrt(c2)
-            else
-                dt1    = _dt(z1)
-                if dt1 < dt
-                    bracketed = true
+
+                if (A > 0 && y < 0)
+                    z1 *= 0.5
+                    _, _, c2, c3 = stumpff(z1)
+                    y = r1 + r2 + A*(z1*c3 - 1)/sqrt(c2)
                 else
-                    z1 *= 1.5
+                    dt1    = _dt(z1)
+                    if dt1 < dt
+                        bracketed = true
+                    else
+                        z1 *= 1.5
+                    end
                 end
             end
         end
