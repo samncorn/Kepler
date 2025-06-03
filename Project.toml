@@ -4,12 +4,18 @@ authors = ["Samuel Cornwall"]
 version = "0.1.2"
 
 [deps]
+DiffResults = "163ba53b-c6d8-5494-b064-1a9d43ac40c5"
+Enzyme = "7da242da-08ed-463a-9acd-ee780be4f1d9"
+ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 Roots = "f2b01f46-fcfa-551c-844a-d8ac1e96c665"
 SPICE = "5bab7191-041a-5c2e-a744-024b9c3a5062"
 
 [compat]
+DiffResults = "1.1.0"
+Enzyme = "0.13.48"
+ForwardDiff = "0.10.38"
 LinearAlgebra = "1.11.0"
 Printf = "1.11.0"
 Roots = "2.2.5"

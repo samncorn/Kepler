@@ -1,7 +1,7 @@
 module Kepler
 
 using LinearAlgebra
-using Roots
+using Enzyme
 using Printf
 
 # Write your package code here.
