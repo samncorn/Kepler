@@ -15,7 +15,6 @@ posf - pos2
 velf - vel2
 
 # test some random orbits
-
 pos1 = SA[1.0, 0.0, 0.0]
 pos2 = SA[0.0, 1.5, 0.0]
 dt = pi/2 
