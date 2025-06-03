@@ -12,7 +12,7 @@ using BenchmarkTools
 # global_logger(debug_logger)
 
 pos0 = @SVector [1.0, 0.0, 0.0]
-vel0 = @SVector [0.0, 1.0, 0.0]
+vel0 = @SVector [0.0, 1.1, 0.0]
 posf, velf = Kepler.solve(pos0, vel0, pi/2, 1.0)
 @btime Kepler.solve($pos0, $vel0, pi/2, 1.0)
 
@@ -165,3 +165,13 @@ e1 = [x[2] for x in succeeded]
 q2 = [x[1] for x in failed]
 e2 = [x[2] for x in failed]
 
+# g(x, y) = x^2 + y^2
+
+# function test()
+#     g1(x) = g(x, 1.0)
+#     dg1   = ForwardDiff.derivative(g1, 1.0)
+
+#     g2(x) = g(x, 2.0)
+#     dg2   = ForwardDiff.derivative(g2, 1.0)
+#     return g2(1.0), dg2
+# end

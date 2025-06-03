@@ -1,5 +1,3 @@
-# module Stumpff
-
 function stumpff(z)
     c0, c1, c2, c3 = if z > 0
         sin2 = sin(0.5sqrt(z))
@@ -27,5 +25,3 @@ function stumpff(z)
 
     return c0, c1, c2, c3
 end
-
-# end

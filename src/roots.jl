@@ -6,7 +6,7 @@ f also needs to be reasonably well behaved on the bracket interval (possibly str
 This is guarunteed to converge if a root is bracketed, with the usual rootfinding caveats (may be slow in some cases, 
 might find multiple roots, etc). 
 """
-function find_root_ics(f, br; max_iters = 1000, tol = 1e-15, btol = 1e-8)
+function brent_newton(f, br; max_iters = 1000, tol = 1e-15, btol = 1e-8)
     # choose the contrapoint (b)
     a, b   = br
     fa, va = f(a)
@@ -30,7 +30,7 @@ function find_root_ics(f, br; max_iters = 1000, tol = 1e-15, btol = 1e-8)
     dx1 = abs(a - b)
     dx2 = dx1
     max_iters = ceil(Int, log2(tol/dx1))^2
-    @debug "estimated maximum $(max_iters) iterations to converge"
+    # @debug "estimated maximum $(max_iters) iterations to converge"
     # bs  = false # whether to use bisection
     bs = false # whatever the last step used
     while i < max_iters && abs(fa) > tol
@@ -89,6 +89,30 @@ function find_root_ics(f, br; max_iters = 1000, tol = 1e-15, btol = 1e-8)
     end
     i >= max_iters && throw("exceeded max iterations $(max_iters)")
     return a
+end
+
+function brent_newton_step(br_x, br_f, br_df, dx1, dx2, bs; btol = 1e-8)
+    @assert sign(br_f[1]) != sign(br_f[2]) 
+    x = 0.5(sum(br_x))
+    if br_df[1] != 0 && br_df[2] != 0
+        # interpolate x(f)
+        x  = interpolate(0.0, Cubic_Hermite_Spline(br_f..., br_x..., 1/br_df[1], 1/br_df[2]))
+        dx = br_f[1] < br_f[2] ? abs(x - br_x[1]) : abs(x - br_x[2])
+        x, dx
+    else
+        # bisect
+        x   = 0.5sum(br_x)
+        return x, true
+    end
+
+    # check progress
+    if !((bs && btol < dx1 && 2dx < dx1) || (!bs && btol < dx2 && 2dx < dx2))
+        # bisect
+        x   = 0.5sum(br_x)
+        return x, true
+    end
+
+    return x, false
 end
 
 struct Cubic_Hermite_Spline{T}

@@ -5,14 +5,21 @@ using Roots
 using Printf
 
 # Write your package code here.
-include("root-finding.jl")
+include("roots.jl")
 include("stumpff.jl")
+include("Lambert.jl")
+
+""" backwards compatability wrapper
+"""
+function solve(pos0::AbstractVector{T}, vel0::AbstractVector{T}, dt::T, gm::T; max_iter = 20, parabolic_tol = 1e-6, tol = 1e-12) where {T}
+    return Kepler.propagate(pos0, vel0, dt, gm; max_iter = max_iter, parabolic_tol = parabolic_tol, tol = tol)
+end
 
 """ 
 Keplerian orbit evolution. Uses the universal variable formaulation from Danby, with initial guesses from Vallado, and
 modification to the stumpff functions from Wisdam + Hernandez 2015
 """
-function solve(pos0::AbstractVector{T}, vel0::AbstractVector{T}, dt::T, gm::T; max_iter = 20, parabolic_tol = 1e-6, tol = 1e-12) where {T}
+function propagate(pos0::AbstractVector{T}, vel0::AbstractVector{T}, dt::T, gm::T; max_iter = 20, parabolic_tol = 1e-6, tol = 1e-12) where {T}
     if dt == 0
         return (pos0, vel0)
     elseif dt < 0 # THE STUPID GUESS DOESNT WORK FOR BACKWARDS TIME
@@ -90,7 +97,7 @@ function solve(pos0::AbstractVector{T}, vel0::AbstractVector{T}, dt::T, gm::T; m
     _f = x -> universal_kepler2(x, alpha, r0, dr0, gm)
     _g = x -> (x[1] - dt, x[2])
     _h = x -> _g(_f(x))
-    s = find_root_ics(_h, bracket; max_iters = max_iter, tol = tol)
+    s  = brent_newton(_h, bracket; max_iters = max_iter, tol = tol)
 
     # @debug "s: $(s)"
 
