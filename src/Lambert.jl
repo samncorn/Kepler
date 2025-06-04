@@ -20,18 +20,20 @@ function lambert_solve(pos1, pos2, dt, gm; de = High, dm = Short, n::Int = 0, ma
     r1 = norm(pos1)
     r2 = norm(pos2)
 
-    dm = if dm == Short
-        1.0
-    elseif dm == Long
-        -1.0
-    else
-        throw("direction of motion must be short or long")
-    end
+    # dm = if dm == Short
+    #     1.0
+    # elseif dm == Long
+    #     -1.0
+    # else
+    #     throw("direction of motion must be short or long")
+    # end
 
     cosdv = dot(pos1, pos2) / (r1*r2)
     # sindv = dm*sqrt(1 - cosdv^2)
 
-    A = dm*sqrt(r1*r2*(1 + cosdv))
+    # A = dm*s
+    A = qrt(r1*r2*(1 + cosdv))
+    A = dm == short ? A : -A
 
     if A == 0
         return nothing
@@ -187,23 +189,29 @@ function lambert_find_bracket(A, r1, r2, gm, dt; n = 0, de = High, dm = Short, t
     if n == 0
         # zero-rev, find lower bound
         if dm == Short
+            # in this case, dt(z) is udnefined for z < 0
             z1 = 0.0
         else
+            # step until we have either found dti < dt, or dt(z1) is undefined, in which case 
+            # we still have a bracket, we just have to bisect
+            dz = 4pi
+            z1 = 0.0
             bracketed = false
             while !bracketed
                 _, _, c2, c3 = stumpff(z1)
                 y = r1 + r2 + A*(z1*c3 - 1)/sqrt(c2)
 
                 if (A > 0 && y < 0)
-                    z1 *= 0.5
-                    _, _, c2, c3 = stumpff(z1)
-                    y = r1 + r2 + A*(z1*c3 - 1)/sqrt(c2)
+                    # exceeded domain, can return and bisect from there
+                    bracketed = true
                 else
                     dt1    = _dt(z1)
-                    if dt1 < dt
+                    if dt1 <= dt
                         bracketed = true
                     else
-                        z1 *= 1.5
+                        z2 -= dz
+                        z1 -= dz
+                        # z1 *= 1.5
                     end
                 end
             end
@@ -281,6 +289,11 @@ end
 function universal_lambert(z, A, r1, r2, gm)
     _, _, c2, c3 = stumpff(z)
     y   = r1 + r2 + A*(z*c3 - 1)/sqrt(c2)
+
+    if (A > 0 && y < 0)
+        return NaN
+    end
+
     s   = sqrt(y/(gm*c2))
 
     dt  = gm*c3*s^3 + A*sqrt(y/gm)
