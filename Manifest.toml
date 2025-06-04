@@ -120,9 +120,9 @@ version = "1.6.0"
 
 [[deps.Enzyme]]
 deps = ["CEnum", "EnzymeCore", "Enzyme_jll", "GPUCompiler", "InteractiveUtils", "LLVM", "Libdl", "LinearAlgebra", "ObjectFile", "PrecompileTools", "Preferences", "Printf", "Random", "SparseArrays"]
-git-tree-sha1 = "be2c627bf432a3a17d6d0e9c461d88bd1a28d3cf"
+git-tree-sha1 = "ef9aa10938d97cd42c524482eda5c523ec4bf0d5"
 uuid = "7da242da-08ed-463a-9acd-ee780be4f1d9"
-version = "0.13.48"
+version = "0.13.49"
 
     [deps.Enzyme.extensions]
     EnzymeBFloat16sExt = "BFloat16s"
