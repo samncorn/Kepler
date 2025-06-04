@@ -33,7 +33,7 @@ function lambert_solve(pos1, pos2, dt, gm; de = High, dm = Short, n::Int = 0, ma
 
     # A = dm*s
     A = sqrt(r1*r2*(1 + cosdv))
-    A = dm == short ? A : -A
+    A = dm == Short ? A : -A
 
     if A == 0
         return nothing
