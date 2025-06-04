@@ -32,8 +32,8 @@ function lambert_solve(pos1, pos2, dt, gm; de = High, dm = Short, n::Int = 0, ma
     # sindv = dm*sqrt(1 - cosdv^2)
 
     # A = dm*s
-    A = sqrt(r1*r2*(1 + cosdv))
-    A = dm == Short ? A : -A
+    # A = sqrt(r1*r2*(1 + cosdv))
+    A = dm == Short ? sqrt(r1*r2*(1 + cosdv)) : -sqrt(r1*r2*(1 + cosdv))
 
     if A == 0
         return nothing
@@ -290,9 +290,9 @@ function universal_lambert(z, A, r1, r2, gm)
     _, _, c2, c3 = stumpff(z)
     y   = r1 + r2 + A*(z*c3 - 1)/sqrt(c2)
 
-    if (A > 0 && y < 0)
-        return NaN
-    end
+    # if (A > 0 && y < 0)
+    #     return NaN
+    # end
 
     s   = sqrt(y/(gm*c2))
 
