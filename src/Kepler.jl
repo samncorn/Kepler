@@ -1,5 +1,6 @@
 module Kepler
 
+using Roots
 using LinearAlgebra
 using Enzyme
 using Printf
