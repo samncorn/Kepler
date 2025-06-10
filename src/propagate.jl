@@ -86,7 +86,11 @@ function propagate(pos0::AbstractVector{T}, vel0::AbstractVector{T}, dt::T, gm::
     _f = x -> universal_kepler2(x, alpha, r0, dr0, gm)
     _g = x -> (x[1] - dt, x[2])
     _h = x -> _g(_f(x))
-    s  = brent_newton(_h, bracket; max_iters = max_iter, tol = tol)
+    try
+        s  = brent_newton(_h, bracket; max_iters = max_iter, tol = tol)
+    catch e
+        throw("failed with error $(e) for α = $(alpha)")
+    end
 
     # @debug "s: $(s)"
 
