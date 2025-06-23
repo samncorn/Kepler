@@ -1,6 +1,6 @@
 """ backwards compatability wrapper
 """
-function solve(pos0::AbstractVector{T}, vel0::AbstractVector{T}, dt::T, gm::T; max_iter = 20, parabolic_tol = 1e-6, tol = 1e-12) where {T}
+function solve(pos0, vel0, dt, gm; max_iter = 20, parabolic_tol = 1e-6, tol = 1e-12)
     return Kepler.propagate(pos0, vel0, dt, gm; max_iter = max_iter, parabolic_tol = parabolic_tol, tol = tol)
 end
 
@@ -8,7 +8,7 @@ end
 Keplerian orbit evolution. Uses the universal variable formaulation from Danby, with initial guesses from Vallado, and
 modification to the stumpff functions from Wisdam + Hernandez 2015
 """
-function propagate(pos0::AbstractVector{T}, vel0::AbstractVector{T}, dt::T, gm::T; max_iter = 20, parabolic_tol = 1e-6, tol = 1e-12) where {T}
+function propagate(pos0, vel0, dt, gm; max_iter = 20, parabolic_tol = 1e-6, tol = 1e-12)
     if dt == 0
         return (pos0, vel0)
     elseif dt < 0 # THE STUPID GUESS DOESNT WORK FOR BACKWARDS TIME
