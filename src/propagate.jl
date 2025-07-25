@@ -25,7 +25,7 @@ function propagate(pos0, vel0, dt, gm; max_iter = 20, parabolic_tol = 1e-6, tol 
     Evec = cross(vel0, Hvec)/gm - pos0/r0
     e = norm(Evec)
 
-    # initial guesses from Danby.
+    # initial guesses from Vallado.
 
     s = if abs(alpha/gm) < parabolic_tol # (near) parabolic case
         # @debug "(near) parabolic orbit (alpha = $(alpha))"
