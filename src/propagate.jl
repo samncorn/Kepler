@@ -55,14 +55,14 @@ function propagate(pos0, vel0, dt, gm; max_iter = 20, parabolic_tol = 1e-6, tol 
     else # hyperbolic
         # trying new hyperbolic guess 
         # @debug "hyperbolic orbit (alpha = $(alpha))"
-        # k  = 1.8
-        # dM = sqrt(-gm*alpha^3)*dt
-        # CH = 1 - r0*alpha
-        # SH = r0*dr0*sqrt(-alpha/gm)
-        # dF = dM > 0 ? log((2dM + k*e)/(CH + SH)) : log((-2dM + k*e)/(CH - SH)) 
-        # dF / sqrt(-alpha)
-        x0 = sign(dt)*sqrt(-1.0/alpha)*log(-2.0*gm*alpha*dt / (r0*dr0 + sign(dt)*sqrt(-gm*alpha)*(1.0 - r0*alpha)))
-        x0/sqrt(gm)
+        k  = 1.8
+        dM = sqrt(-gm*alpha^3)*dt
+        CH = 1 - r0*alpha
+        SH = r0*dr0*sqrt(-alpha/gm)
+        dF = dM > 0 ? log((2dM + k*e)/(CH + SH)) : log((-2dM + k*e)/(CH - SH)) 
+        dF / sqrt(-alpha)
+        # x0 = sign(dt)*sqrt(-1.0/alpha)*log(-2.0*gm*alpha*dt / (r0*dr0 + sign(dt)*sqrt(-gm*alpha)*(1.0 - r0*alpha)))
+        # x0/sqrt(gm)
     end
 
     # check we have not overflowed our numbers precision (excessively long timespan)
