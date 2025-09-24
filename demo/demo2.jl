@@ -10,6 +10,38 @@ using Logging
 debug_logger = ConsoleLogger(stderr, Logging.Debug)
 global_logger(debug_logger)
 
+# tests from Vallado
+T = Float64
+pos = T.([1131.340, -2282.343, 6672.423])
+vel = T.([-5.64305, 4.30333, 2.42879])
+dt  = T(40.0*60.0)
+gm  = T(398600.4415)# per vallado
+# gm = 398600.0
+
+chi = norm(vel)^2/2 - gm/norm(pos)
+a   = -gm/(2.0*chi)
+alp = 1/a
+alp = 2/sqrt(dot(pos, pos)) - dot(vel, vel)/gm
+# a   = 1/alp
+
+posf, velf = Kepler.propagate(pos, vel, dt, gm)
+statef = SPICE.prop2b(gm, [pos..., vel...], dt)
+
+# comapre with spice
+vcat(posf, velf) - statef
+
+# angular momentum conservation
+cross(pos, vel)
+cross(posf, velf)
+
+cross(pos, vel) - cross(posf, velf)
+
+cross(statef[1:3], statef[4:6]) - cross(pos, vel)
+
+#mechanical energy conservation
+((norm(velf)^2)/2 - gm/norm(posf)) - ((norm(vel)^2)/2 - gm/norm(pos))
+((norm(statef[4:6])^2)/2 - gm/norm(statef[1:3])) - ((norm(vel)^2)/2 - gm/norm(pos))
+
 # a failure case encountered using heliolinc. hyperoblic, large |s|, sinh(sqrt(|z|)) overflows
 # turns out it was a negative time issue (and the overflowed initial guess). chooseing a better guess and reversing time fixed it
 # %%
@@ -24,21 +56,56 @@ dt = 1.234750019852072
 gm  = 0.01720209894846^2
 # %%
 
-posf, velf = Kepler.solve(pos, vel, dt, gm; parabolic_tol = 1e-6)
-vcat(posf, velf) - SPICE.prop2b(gm, [pos..., vel...], dt)
+posf, velf = Kepler.solve(pos, vel, dt, gm)
+statef = SPICE.prop2b(gm, [pos..., vel...], dt)
+
+# comapre with spice
+vcat(posf, velf) - statef
+
+# angular momentum conservation
+cross(pos, vel)
+cross(posf, velf)
+
+cross(pos, vel) - cross(posf, velf)
+
+cross(statef[1:3], statef[4:6]) - cross(pos, vel)
+
+#mechanical energy conservation
+((norm(velf)^2)/2 - gm/norm(posf)) - ((norm(vel)^2)/2 - gm/norm(pos))
+((norm(statef[4:6])^2)/2 - gm/norm(statef[1:3])) - ((norm(vel)^2)/2 - gm/norm(pos))
+
+# try non-dimensionalized
+DU   = norm(pos)
+TU   = sqrt(DU^3/gm)
+pos0 = pos/DU
+vel0 = vel/DU*TU
+dt0  = dt/TU
+posf, velf = Kepler.solve(pos0, vel0, dt0, 1.0)
+vcat(posf, velf) - SPICE.prop2b(1.0, [pos0..., vel0...], dt0)
 
 # s = 0.4957408029292113
 # s = 0.0
 
 # # test a parabolic orbit
-# pos = [1.0, 0.0, 0.0]
-# vel = [0.0, (1.0 + 0e-11)*sqrt(2), 0.0]
-# # dt  =  1.234750019852072
-# dt = 0.001
-# gm = 1.0 
+pos = [1.0, 0.0, 0.0]
+vel = [0.0, (1.0 + 0e-11)*sqrt(2), 0.0]
+# dt  =  1.234750019852072
+dt = 0.001
+gm = 1.0 
 
-# posf, velf = Kepler.solve(pos, vel, dt, gm; parabolic_tol = 1e-6)
-# vcat(posf, velf) - SPICE.prop2b(gm, [pos..., vel...], dt)
+posf, velf = Kepler.solve(pos, vel, dt, gm)
+statef = SPICE.prop2b(gm, [pos..., vel...], dt)
+vcat(posf, velf) - statef
+
+cross(pos, vel)
+cross(posf, velf)
+
+cross(pos, vel) - cross(posf, velf)
+
+cross(statef[1:3], statef[4:6]) - cross(pos, vel)
+
+((norm(velf)^2)/2 - gm/norm(posf)) - ((norm(vel)^2)/2 - gm/norm(pos))
+((norm(statef[4:6])^2)/2 - gm/norm(statef[1:3])) - ((norm(vel)^2)/2 - gm/norm(pos))
 
 using CairoMakie
 
