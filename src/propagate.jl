@@ -50,15 +50,19 @@ function propagate(pos, vel, dt, gm; max_iter = 20)
 
     
     # we have non-dimentionalized in a way that s = x, so we can mix equations from both Vallado and Danby
-    # x = if abs(a) < 1e-6 
-    #     # near-parabolic
-    #     # converted from Vallado.
-    #     # need to study this
-    #     # NOT a upper or lower bound, so still need to establish a bracket
-    #     p = dot(Hvec, Hvec)
-    #     s = 0.5acot(3dt*sqrt(1/p^3))
-    #     w = atan(tan(s)^(1/3))
-    #     2sqrt(p)*cot(2w)
+    x = if abs(a) < 1e-6 
+        # near-parabolic
+        # converted from Vallado.
+        # need to study this
+        # NOT a upper or lower bound, so still need to establish a bracket
+        p = dot(Hvec, Hvec)
+        s = 0.5acot(3dt*sqrt(1/p^3))
+        w = atan(tan(s)^(1/3))
+        2sqrt(p)*cot(2w)
+    else
+        x = dt0*a/(1 - e)
+    end
+
     # elseif a > 0
     #     # elliptic
     #     # since dx/dt = 1/r, the minimum radius yields the maximum rate of change.
@@ -75,7 +79,7 @@ function propagate(pos, vel, dt, gm; max_iter = 20)
 
     # since dx/dt = 1/r, the minimum radius (periapse distance) yields the maximum rate of change.
     # so we can establish an upper bound on x
-    x = dt0*a/(1 - e)
+    # x = dt0*a/(1 - e)
 
     # println("initial x = $(x*sqrt(DU))")
 
