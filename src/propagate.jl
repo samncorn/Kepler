@@ -50,28 +50,33 @@ function propagate(pos, vel, dt, gm; max_iter = 20)
 
     
     # we have non-dimentionalized in a way that s = x, so we can mix equations from both Vallado and Danby
-    x = if abs(a) < 1e-6 
-        # near-parabolic
-        # converted from Vallado.
-        # need to study this
-        # NOT a upper or lower bound, so still need to establish a bracket
-        p = dot(Hvec, Hvec)
-        s = 0.5acot(3dt*sqrt(1/p^3))
-        w = atan(tan(s)^(1/3))
-        2sqrt(p)*cot(2w)
-    elseif a > 0
-        # elliptic
-        # since dx/dt = 1/r, the minimum radius yields the maximum rate of change.
-        # so we can establish an upper bound on x
-        dt0*a/(1 - e)
-    elseif a < 0
-        # hyperbolic
-        # converted from Vallado.
-        # same caveats as near-parabolic case
-        sqrt(-1/a)*log(-2.0a*dt0 / (dr0 + sqrt(-1/a)*(1.0 - a)))
-    else
-        throw("ERROR 1/a = $a")
-    end
+    # x = if abs(a) < 1e-6 
+    #     # near-parabolic
+    #     # converted from Vallado.
+    #     # need to study this
+    #     # NOT a upper or lower bound, so still need to establish a bracket
+    #     p = dot(Hvec, Hvec)
+    #     s = 0.5acot(3dt*sqrt(1/p^3))
+    #     w = atan(tan(s)^(1/3))
+    #     2sqrt(p)*cot(2w)
+    # elseif a > 0
+    #     # elliptic
+    #     # since dx/dt = 1/r, the minimum radius yields the maximum rate of change.
+    #     # so we can establish an upper bound on x
+    #     dt0*a/(1 - e)
+    # elseif a < 0
+    #     # hyperbolic
+    #     # converted from Vallado.
+    #     # same caveats as near-parabolic case
+    #     sqrt(-1/a)*log(-2a*dt0 / (dr0 + sqrt(-1/a)*(1.0 - a)))
+    # else
+    #     throw("ERROR 1/a = $a")
+    # end
+
+    # since dx/dt = 1/r, the minimum radius (periapse distance) yields the maximum rate of change.
+    # so we can establish an upper bound on x
+    x = dt0*a/(1 - e)
+
     # println("initial x = $(x*sqrt(DU))")
 
     # check we have not overflowed our numbers precision (excessively long timespan)
@@ -86,6 +91,8 @@ function propagate(pos, vel, dt, gm; max_iter = 20)
 
     _, c1, c2, c3 = stumpff(a*x^2)
     y = x*c1 + dr0*c2*x^2 + c3*x^3 - dt0
+    # @debug "lower bound x = $x_br y = $y_br"
+    # @debug "upper bound x = $x y = $y"
     
     while sign(y) == sign(y_br)
         # take forward steps, maintaining the size of our interval
@@ -96,8 +103,11 @@ function propagate(pos, vel, dt, gm; max_iter = 20)
         x    *= 2
         _, c1, c2, c3 = stumpff(a*x^2)
         y    = x*c1 + dr0*c2*x^2 + c3*x^3 - dt0
+        @debug "lower bound x = $x_br y = $y_br"
+        @debug "upper bound x = $x y = $y"
     end
-
+    # @debug "lower bound x = $x_br y = $y_br"
+    # @debug "upper bound x = $x y = $y"
 
     # should add a safety check here
 
@@ -207,7 +217,7 @@ end
 
 # dimensionalized initital guesses
     # s = if abs(alpha/gm) < parabolic_tol # (near) parabolic case
-    #     # @debug "(near) parabolic orbit (alpha = $(alpha))"
+        # @debug "(near) parabolic orbit (alpha = $(alpha))"
     #     # solve the cubic solution to the parabolic case
     #     # a0 = -6dt/gm
     #     # a1 = 6r0/gm
@@ -229,11 +239,11 @@ end
     #     w = atan(tan(s)^(1/3))
     #     2sqrt(p)*cot(2w)/sqrt(gm)
     # elseif alpha > 0.0 # elliptic
-    #     # @debug "elliptic orbit (alpha = $(alpha))"
+        # @debug "elliptic orbit (alpha = $(alpha))"
     #     dt*alpha/(gm*(1 - e))
     # else # hyperbolic
     #     # trying new hyperbolic guess 
-    #     # @debug "hyperbolic orbit (alpha = $(alpha))"
+        # @debug "hyperbolic orbit (alpha = $(alpha))"
     #     # k  = 1.8
     #     # dM = sqrt(-gm*alpha^3)*dt
     #     # CH = 1 - r0*alpha
