@@ -90,14 +90,15 @@ function propagate(pos, vel, dt, gm; max_iter = 20)
     max_j = 1000
     j = 0
     while sign(y) == sign(y_br)
-        j >= max_j && throw("exceeded bracket steping max count a = $(1/a*DU) e = $e q = $(a*(1-e)) dt = $dt")
+        j >= max_j && throw("exceeded bracket steping max count a = $(1/a*DU) e = $e q = $(a*(1-e)) dt = $dt
+        pos = $pos vel = $vel gm = $gm")
         j += 1
         # take forward steps, maintaining the size of our interval
         # we could use some newton steps here, and would probably work better
         # but I'm lazy, and this is exceedingly likely to require at most 1 step
         x_br = x
         y_br = y
-        x    += br_step
+        x    *= 2
         _, c1, c2, c3 = stumpff(a*x^2)
         y    = x*c1 + dr0*c2*x^2 + c3*x^3 - dt0
     end
@@ -126,8 +127,8 @@ function propagate(pos, vel, dt, gm; max_iter = 20)
     # println("bracket = $bracket")
     _f1 = _x -> (_x, stumpff(a*_x^2)...)
     _f2 = ((_x, _, _c1, _c2, _c3),) -> _x*_c1 + dr0*_c2*_x^2 + _c3*_x^3
-    # x = find_zero(_x -> _f2(_f1(_x)) - dt0, bracket, A42())
-    x = find_zero(_x -> _f2(_f1(_x)) - dt0, bracket, Bisection())
+    x = find_zero(_x -> _f2(_f1(_x)) - dt0, bracket, A42())
+    # x = find_zero(_x -> _f2(_f1(_x)) - dt0, bracket, Bisection())
     # x = try
     #     find_zero(_x -> _f2(_f1(_x)) - dt0, bracket, Bisection())
     # catch err
