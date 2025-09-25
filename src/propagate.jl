@@ -120,12 +120,12 @@ function propagate(pos, vel, dt, gm; max_iter = 20)
     _f1 = _x -> (_x, stumpff(a*_x^2)...)
     _f2 = ((_x, _, _c1, _c2, _c3),) -> _x*_c1 + dr0*_c2*_x^2 + _c3*_x^3
     # x = find_zero(_x -> _f2(_f1(_x)) - dt0, bracket, A42())
-    # x = find_zero(_x -> _f2(_f1(_x)) - dt0, bracket, Bisection())
-    x = try
-        find_zero(_x -> _f2(_f1(_x)) - dt0, bracket, Bisection())
-    catch err
-        throw("bracket = $bracket")
-    end
+    x = find_zero(_x -> _f2(_f1(_x)) - dt0, bracket, Bisection())
+    # x = try
+    #     find_zero(_x -> _f2(_f1(_x)) - dt0, bracket, Bisection())
+    # catch err
+    #     throw("bracket = $bracket")
+    # end
     # println("final x = $(x*sqrt(DU))")
     # println("final z = $(a*x^2)")
 
