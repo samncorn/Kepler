@@ -90,7 +90,7 @@ function propagate(pos, vel, dt, gm; max_iter = 20)
     max_j = 1000
     j = 0
     while sign(y) == sign(y_br)
-        j >= max_j && throw("exceeded bracket steping max count a = $(1/a*DU) e = $e dt = $dt")
+        j >= max_j && throw("exceeded bracket steping max count a = $(1/a*DU) e = $e q = $(a*(1-e)) dt = $dt")
         j += 1
         # take forward steps, maintaining the size of our interval
         # we could use some newton steps here, and would probably work better
