@@ -64,7 +64,7 @@ function propagate(pos, vel, dt, gm; max_iter = 20)
     end
 
     if x == Inf
-        throw((err, "a = $(1/a*DU) e = $e q = $(a*(1-e)) dt = $dt pos = $pos vel = $vel gm = $gm"))
+        throw("a = $(1/a*DU) e = $e q = $(a*(1-e)) dt = $dt pos = $pos vel = $vel gm = $gm")
     end
 
     # elseif a > 0
