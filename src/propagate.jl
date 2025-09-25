@@ -86,7 +86,12 @@ function propagate(pos, vel, dt, gm; max_iter = 20)
 
     _, c1, c2, c3 = stumpff(a*x^2)
     y = x*c1 + dr0*c2*x^2 + c3*x^3 - dt0
+    
+    max_j = 1000
+    j = 0
     while sign(y) == sign(y_br)
+        j >= max_j && throw("exceeded bracket steping max count")
+        j += 1
         # take forward steps, maintaining the size of our interval
         # we could use some newton steps here, and would probably work better
         # but I'm lazy, and this is exceedingly likely to require at most 1 step
@@ -96,6 +101,8 @@ function propagate(pos, vel, dt, gm; max_iter = 20)
         _, c1, c2, c3 = stumpff(a*x^2)
         y    = x*c1 + dr0*c2*x^2 + c3*x^3 - dt0
     end
+
+
     # should add a safety check here
 
     # if sign(y) == sign(y_br)
