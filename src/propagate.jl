@@ -82,6 +82,8 @@ function propagate(pos, vel, dt, gm; max_iter = 20)
     x_br = 0.0
     y_br = -dt0
 
+    br_step = x
+
     _, c1, c2, c3 = stumpff(a*x^2)
     y = x*c1 + dr0*c2*x^2 + c3*x^3 - dt0
     while sign(y) == sign(y_br)
@@ -90,15 +92,15 @@ function propagate(pos, vel, dt, gm; max_iter = 20)
         # but I'm lazy, and this is exceedingly likely to require at most 1 step
         x_br = x
         y_br = y
-        x    = 2x
+        x    += br_step
         _, c1, c2, c3 = stumpff(a*x^2)
         y    = x*c1 + dr0*c2*x^2 + c3*x^3 - dt0
     end
     # should add a safety check here
 
-    if sign(y) == sign(y_br)
-        throw("bracket search failed => [$y_br, $y]")
-    end
+    # if sign(y) == sign(y_br)
+    #     throw("bracket search failed => [$y_br, $y]")
+    # end
 
     # br   = 0.0
     # br_y = universal_kepler(br, alpha, r0, dr0, gm) - dt
@@ -118,7 +120,11 @@ function propagate(pos, vel, dt, gm; max_iter = 20)
     _f1 = _x -> (_x, stumpff(a*_x^2)...)
     _f2 = ((_x, _, _c1, _c2, _c3),) -> _x*_c1 + dr0*_c2*_x^2 + _c3*_x^3
     # x = find_zero(_x -> _f2(_f1(_x)) - dt0, bracket, A42())
-    x = find_zero(_x -> _f2(_f1(_x)) - dt0, bracket, Bisection())
+    x = try
+        x = find_zero(_x -> _f2(_f1(_x)) - dt0, bracket, Bisection())
+    catch err
+        throw("bracket = $bracket")
+    end
     # println("final x = $(x*sqrt(DU))")
     # println("final z = $(a*x^2)")
 
