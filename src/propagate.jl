@@ -29,8 +29,6 @@ function propagate(pos, vel, dt, gm; max_iter = 20)
     vel0 = vel/DU*TU
     dt0  = dt/TU
 
-
-
     # println("recovered gm = $(DU^3 / TU^2)")
 
     # r0  = norm(pos0)
@@ -63,9 +61,9 @@ function propagate(pos, vel, dt, gm; max_iter = 20)
         x = dt0*a/(1 - e)
     end
 
-    if x == Inf
-        throw("a = $(1/a*DU) e = $e q = $(a*(1-e)) dt = $dt pos = $pos vel = $vel gm = $gm")
-    end
+    # if x == Inf
+    #     throw("a = $(1/a*DU) e = $e q = $(a*(1-e)) dt = $dt pos = $pos vel = $vel gm = $gm")
+    # end
 
     # elseif a > 0
     #     # elliptic
@@ -138,11 +136,12 @@ function propagate(pos, vel, dt, gm; max_iter = 20)
     # println("bracket = $bracket")
     _f1 = _x -> (_x, stumpff(a*_x^2)...)
     _f2 = ((_x, _, _c1, _c2, _c3),) -> _x*_c1 + dr0*_c2*_x^2 + _c3*_x^3
-    try
-        x = find_zero(_x -> _f2(_f1(_x)) - dt0, bracket, A42())
-    catch err
-        throw((err, "a = $(1/a*DU) e = $e q = $(a*(1-e)) dt = $dt pos = $pos vel = $vel gm = $gm"))
-    end
+    x = find_zero(_x -> _f2(_f1(_x)) - dt0, bracket, A42())
+    # try
+        
+    # catch err
+    #     throw((err, "a = $(1/a*DU) e = $e q = $(a*(1-e)) dt = $dt pos = $pos vel = $vel gm = $gm"))
+    # end
     # x = find_zero(_x -> _f2(_f1(_x)) - dt0, bracket, Bisection())
     # x = try
     #     find_zero(_x -> _f2(_f1(_x)) - dt0, bracket, Bisection())
