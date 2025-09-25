@@ -113,7 +113,7 @@ function propagate(pos, vel, dt, gm; max_iter = 20)
     # we now have a bracket, and can find the root.
     # chain a couple of closures together to get the right args to the right places
     # TODO: implement a bracketed root finder using higher derivatives
-    bracket = (br, x)
+    bracket = (x_br, x)
     # println("bracket = $bracket")
     _f1 = _x -> (_x, stumpff(a*_x^2)...)
     _f2 = ((_x, _, _c1, _c2, _c3),) -> _x*_c1 + dr0*_c2*_x^2 + _c3*_x^3
