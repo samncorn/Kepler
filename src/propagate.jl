@@ -9,6 +9,10 @@ Keplerian orbit evolution. Uses the universal variable formaulation from Danby, 
 modification to the stumpff functions from Wisdam + Hernandez 2015
 """
 function propagate(pos, vel, dt, gm; max_iter = 20)
+    if all(vel .== 0) || all(pos .== 0) 
+        throw("invalid orbit")
+    end
+
     if dt == 0
         return (pos, vel)
     elseif dt < 0 # THE STUPID GUESS DOESNT WORK FOR BACKWARDS TIME
@@ -24,6 +28,8 @@ function propagate(pos, vel, dt, gm; max_iter = 20)
     pos0 = pos/DU
     vel0 = vel/DU*TU
     dt0  = dt/TU
+
+
 
     # println("recovered gm = $(DU^3 / TU^2)")
 
@@ -73,7 +79,7 @@ function propagate(pos, vel, dt, gm; max_iter = 20)
 
     # set up the bracket
     # only handle the forward time case (due to the above check)
-    br   = 0.0
+    x_br = 0.0
     y_br = -dt0
 
     _, c1, c2, c3 = stumpff(a*x^2)
@@ -82,13 +88,17 @@ function propagate(pos, vel, dt, gm; max_iter = 20)
         # take forward steps, maintaining the size of our interval
         # we could use some newton steps here, and would probably work better
         # but I'm lazy, and this is exceedingly likely to require at most 1 step
-        br   = x
+        x_br = x
         y_br = y
         x    = 2x
         _, c1, c2, c3 = stumpff(a*x^2)
         y    = x*c1 + dr0*c2*x^2 + c3*x^3 - dt0
     end
     # should add a safety check here
+
+    if sign(y) == sign(y_br)
+        throw("bracket search failed => [$y_br, $y]")
+    end
 
     # br   = 0.0
     # br_y = universal_kepler(br, alpha, r0, dr0, gm) - dt
@@ -114,7 +124,7 @@ function propagate(pos, vel, dt, gm; max_iter = 20)
 
     # _, c1, c2, c3 = stumpff(alpha*s^2)
     _, c1, c2, c3 = stumpff(a*x^2)
-    dtf = x*c1 + dr0*c2*x^2 + c3*x^3
+    # dtf = x*c1 + dr0*c2*x^2 + c3*x^3
     # println("initial dt = $(dt0)")
     # println("final dt   = $(dtf)")
     # println("dt error   = $((dtf-dt0))")
