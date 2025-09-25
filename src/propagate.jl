@@ -63,6 +63,10 @@ function propagate(pos, vel, dt, gm; max_iter = 20)
         x = dt0*a/(1 - e)
     end
 
+    if x == Inf
+        throw((err, "a = $(1/a*DU) e = $e q = $(a*(1-e)) dt = $dt pos = $pos vel = $vel gm = $gm"))
+    end
+
     # elseif a > 0
     #     # elliptic
     #     # since dx/dt = 1/r, the minimum radius yields the maximum rate of change.
@@ -90,8 +94,6 @@ function propagate(pos, vel, dt, gm; max_iter = 20)
     # only handle the forward time case (due to the above check)
     x_br = 0.0
     y_br = -dt0
-
-    br_step = x
 
     _, c1, c2, c3 = stumpff(a*x^2)
     y = x*c1 + dr0*c2*x^2 + c3*x^3 - dt0
