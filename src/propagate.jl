@@ -5,8 +5,21 @@ function solve(pos0, vel0, dt, gm; max_iter = 20)
 end
 
 """ 
-Keplerian orbit evolution. Uses the universal variable formaulation from Danby, with initial guesses from Vallado, and
-modification to the stumpff functions from Wisdam + Hernandez 2015
+Compute the position/velcoity along a Keplerian orbit after given timespan. Uses the universal variable formaulation
+from Danby, with initial guesses from Vallado, and modification to the stumpff functions from Wisdam + Hernandez 2015.
+
+normalizes the orbit to r0 = 1 and gm = 1, so there will likely be slight differences with other implementations from 
+floating point operations. This conveniently leads to s (Danby) equal to x (Vallado), and alpha (Vallado) equal to 
+beta (Wisdom, alpha in Danby). Total number of operations is reduced (though not likely impactful to most users)
+
+Uses a bracketing method to guaruntee convergence IF the upper bound guess is well behaved (the lower bound is 
+guarunteed). It is possible for the initial guess to evaluate to infinity if the timespan is too long, or if an orbit 
+is near enough to rectilinear that numerical issues lead to e = 1. While dropping something into the sun is perfectly
+well defined up to impact time, the singularity in the equations of motion causes a problem afterwards. More 
+importantly it invalidates the initial guess. There is an argument to be made that solve up to the point fof numeric 
+problems is desirable, (since we solve long time spans to the point of failure), and inward falling orbits are 
+physically reasonable, so future revisions may include such a solution. Until I find that solution, no rectilinear 
+orbits. 
 """
 function propagate(pos, vel, dt, gm; max_iter = 20)
     if all(vel .== 0) || all(pos .== 0) 
@@ -61,32 +74,12 @@ function propagate(pos, vel, dt, gm; max_iter = 20)
         x = dt0*a/(1 - e)
     end
 
-    # if x == Inf
-    #     throw("a = $(1/a*DU) e = $e q = $(a*(1-e)) dt = $dt pos = $pos vel = $vel gm = $gm")
-    # end
+    if x == Inf
+        throw("ERROR initial guess Inf. Likely causes are long timespans or near-rectilinear orbits. a = $(1/a*DU) e = $e q = $(a*(1-e)) dt = $dt pos = $pos vel = $vel gm = $gm")
+    end
 
-    # elseif a > 0
-    #     # elliptic
-    #     # since dx/dt = 1/r, the minimum radius yields the maximum rate of change.
-    #     # so we can establish an upper bound on x
-    #     dt0*a/(1 - e)
-    # elseif a < 0
-    #     # hyperbolic
-    #     # converted from Vallado.
-    #     # same caveats as near-parabolic case
-    #     sqrt(-1/a)*log(-2a*dt0 / (dr0 + sqrt(-1/a)*(1.0 - a)))
-    # else
-    #     throw("ERROR 1/a = $a")
-    # end
+    # TODO: Add a check for near-rectilinear orbits. 
 
-    # since dx/dt = 1/r, the minimum radius (periapse distance) yields the maximum rate of change.
-    # so we can establish an upper bound on x
-    # x = dt0*a/(1 - e)
-
-    # println("initial x = $(x*sqrt(DU))")
-
-    # check we have not overflowed our numbers precision (excessively long timespan)
-    # @assert 0 < s < typemax(T)
 
     # set up the bracket
     # only handle the forward time case (due to the above check)
