@@ -1,9 +1,10 @@
 name = "Kepler"
 uuid = "adce7ac5-41de-41eb-81d7-62287823a1c6"
-authors = ["Samuel Cornwall"]
 version = "0.1.2"
+authors = ["Samuel Cornwall"]
 
 [deps]
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 DiffResults = "163ba53b-c6d8-5494-b064-1a9d43ac40c5"
 Enzyme = "7da242da-08ed-463a-9acd-ee780be4f1d9"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
@@ -13,6 +14,7 @@ Roots = "f2b01f46-fcfa-551c-844a-d8ac1e96c665"
 SPICE = "5bab7191-041a-5c2e-a744-024b9c3a5062"
 
 [compat]
+CairoMakie = "0.15.6"
 DiffResults = "1.1.0"
 Enzyme = "0.13.48"
 ForwardDiff = "0.10.38"

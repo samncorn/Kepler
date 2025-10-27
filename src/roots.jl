@@ -143,87 +143,43 @@ function interpolate(x, spline)
     return a1 + t*(a2 + t*(a3 + t*a4))
 end
 
-# @enum root_result found_root bracket_error convergence_error
+""" given computed values for f and it's derivative (df) at 2 points, computes the next step by inverse 
+interpolation. Analogous to a Newton-Raphson step, but with two history points.
+"""
+function lmm12_step(x1, x2, f1, f2, df1, df2)
+    # construct polynomial approximation of the inverse
+    # cubic in this case
+    p = SVector{4}((x1, x2, 1/df1, 1/df2))
+    M = transpose(SMatrix{4, 4}(
+        1.0,  f1, f1^2,   f1^3,
+        1.0,  f2, f2^2,   f2^3,
+        0.0, 1.0, 2*f1, 3*f1^2,
+        0.0, 1.0, 2*f2, 3*f2^2,
+    ))
+    # interpolate the inverse
+    # f^(-1)(x) = b0 + b_i x^i, so
+    # f^(-1)(0) = b0
+    b0, _, _, _ = pinv(M)*p
+    return b0
+end
 
-# """ f must return the appropriate amount of derivatives for next_term
-# """
-# function root_solve(next_term, f, x0, tol, max_iter)
-#     i = 0
-#     x = x0
-#     err = Inf
-#     while err > tol && i <= max_iter
-#         dx = next_term(f, x)
-#         x -= dx
-#         err = abs(dx)
-#         i += 1
-#     end
-#     return x, i
-# end
-
-# function _newton2(f, x)
-#     y, dy = f(x)
-#     dx = y/dy
-#     return dx
-# end
-
-# function _newton3(f, x)
-#     y, dy, ddy = f(x)
-#     dx = y/dy
-#     dx2 = y/(dy - dx*ddy/2)
-#     return dx2
-# end
-
-# function _newton4(f, x)
-#     y, dy, ddy, dddy = f(x)
-#     dx = y/dy
-#     dx2 = y/(dy - dx*ddy/2)
-#     dx3 = y/(dy - dx2*ddy/2 + dx2^2 * dddy/6)
-#     return dx3
-# end
-
-# function _laguerre(f, x, n)
-#     y, dy, ddy = f(x)
-#     return n*y / (dy + sign(dy)*sqrt(abs((n-1)^2 * (dy^2 - n*(n-1)*y*ddy))))
-# end
-
-# newton2(f, x0, tol, max_iter) = root_solve(_newton2, f, x0, tol, max_iter)
-# newton3(f, x0, tol, max_iter) = root_solve(_newton3, f, x0, tol, max_iter)
-# newton4(f, x0, tol, max_iter) = root_solve(_newton4, f, x0, tol, max_iter)
-# # laguerre(f, x0, tol, max_iter; n = 5) = root_solve(x -> _laguerre(x[1], x[2], 5), f, x0, tol, max_iter)
-# function laguerre(f, x0, tol, max_iter; n = 5)
-#     i = 0
-#     x = x0
-#     err = Inf
-#     while err > tol && i <= max_iter
-#         dx = _laguerre(f, x, n)
-#         x -= dx
-#         err = abs(dx)
-#         i += 1
-#     end
-#     return x, i
-# end
-
-# function _bracket_root(method, f, bracket, tol, max_iter)
-#     # check the bracket, if no root return failure
-#     if sign(f(bracket[1])) == sign(f(bracket[2]))
-#         return bracket_err, bracket[1]
-#     end
-
-#     iter = 0
-#     err  = abs(bracket[1] - bracket[2])
-
-#     while err > tol && iter < max_iter
-#         # cubic spline the inverse
-#         x = 
-    
-#         err   = abs(bracket[1] - bracket[2])
-#         iter += 1
-#     end
-#     return found_root, x
-# end
-
-# function _newton_bracket_2()
-
-# end
-
-# newton_bracket_2(f, bracket, tol, max_iter) = _bracket_root(_newton_bracket_2, f, bracket, tol, max_iter)
+"""given computed values for f and it's derivative (df) at 3 points, computes the next step by inverse 
+interpolation. Analogous to a Newton-Raphson step, but with three history points.
+"""
+function lmm13_step(x1, x2, x3, f1, f2, f3, df1, df2, df3)
+    # construct (quintic) polynomial approximation of the inverse
+    p = SVector{4}((x1, x2, x3, 1/df1, 1/df2, 1/df3))
+    M = transpose(SMatrix{4, 4}(
+        1.0,  f1, f1^2, f1^3, f1^4, f1^5,
+        1.0,  f2, f2^2, f2^3, f2^4, f2^5,
+        1.0,  f3, f3^2, f3^3, f3^4, f3^5,
+        0.0, 1.0, 2*f1, 3*f1^2, 4*f1^3, 5*f1^4,
+        0.0, 1.0, 2*f2, 3*f2^2, 4*f2^3, 5*f2^4,
+        0.0, 1.0, 2*f3, 3*f3^2, 4*f3^3, 5*f3^4,
+    ))
+    # interpolate the inverse
+    # f^(-1)(x) = b0 + b_i x^i, so
+    # f^(-1)(0) = b0
+    b0, _, _, _ = pinv(M)*p
+    return b0
+end
