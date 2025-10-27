@@ -79,8 +79,8 @@ end
 
 function stumpff(z)
     if z > 1e-6
-        c0 = cosh(sqrt(-z))
-        c1 = sinh(sqrt(-z))/sqrt(-z)
+        c0 = cos(sqrt(z))
+        c1 = sin(sqrt(z))/sqrt(z)
         c2 = (1 - c0)/z
         c3 = (1 - c1)/z
         return c0, c1, c2, c3
