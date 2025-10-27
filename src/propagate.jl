@@ -40,7 +40,7 @@ function propagate(pos, vel, dt, gm; max_iter = 20)
     k3 = gm/((nu^2)*(q^3))
 
     # bracket the root in y
-    bracket = (0.0, L)
+    bracket = (0.0, 1.1L)
 
     # in these units, dy/dL <= 1, so L(dt) will always be an upper bound, regardless of orbit
     # rather than choosing better initial guesses (which exist but are orbit dependant), we can instead use higher 

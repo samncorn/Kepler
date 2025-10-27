@@ -43,10 +43,10 @@ global_logger(debug_logger)
 # dt  = -5.998977942803302
 # gm  = 0.0002959122082326087
 
-pos = [ -1.8334693, -0.7424496, -0.2952267,]
-vel = [ 0.0048580, -0.0102534, -0.0043844,]
-dt = 3.0695209
-gm = 0.0002959
+pos = [-1.8334693215194804, -0.7424496266825248, -0.2952266528773983]
+vel = [0.004858030562369436, -0.010253429035065403, -0.004384412542682951]
+dt = 3.0695209246163175
+gm = 0.0002959122082326087
 
 # test and compare to spice
 posf, velf = Kepler.propagate(pos, vel, dt, gm)
@@ -58,8 +58,32 @@ posf - posf2
 velf - velf2
 
 # # break down internals
+function stumpff(z)
+    if z > 1e-6
+        c0 = cos(sqrt(z))
+        c1 = sin(sqrt(z))/sqrt(z)
+        c2 = (1 - c0)/z
+        c3 = (1 - c1)/z
+        return c0, c1, c2, c3
+    elseif z < -1e-6
+        c0 = cosh(sqrt(-z))
+        c1 = sinh(sqrt(-z))/sqrt(-z)
+        c2 = (1 - c0)/z
+        c3 = (1 - c1)/z
+        return c0, c1, c2, c3
+    else
+        # z very small. evaluate the series to 6 terms 
+        # error is O(x^7) < 1e-21, well within floating point tolerances
+        c2 = (1-z*(1-z*(1-z*(1-z*(1-z*(1-z/182)/132)/90)/56)/30)/12)/2
+        c3 = (1-z*(1-z*(1-z*(1-z*(1-z*(1-z/210)/156)/110)/72)/42)/20)/6
+        c0 = 1 - z*c2
+        c1 = 1 - z*c3
+        return c0, c1, c2, c3
+    end
+end
+
 function universal_kepler(y, l, k1, k2, k3)
-    _, c1, c2, c3 = Kepler.stumpff(l*y^2)
+    _, c1, c2, c3 = stumpff(l*y^2)
     L = y*(k1*c1 + y*(k2*c2 + y*k3*c3))
     return L
 end
@@ -84,9 +108,10 @@ bracket = (0.0, L)
 x0 = sqrt(q/(1+e))*L
 z0 = l*L^2 
 
-universal_kepler(L, l, k1, k2, k3)/nu - dt
+universal_kepler(1.1L, l, k1, k2, k3) - L
 
-y = find_zero(_y -> universal_kepler(_y, l, k1, k2, k3) - L, bracket, A42())
+y = find_zero(_y -> universal_kepler(_y, l, k1, k2, k3) - L, L, A42())
+universal_kepler(y, l, k1, k2, k3) - L
 
 # 
 x = sqrt(q/(1+e))*y
