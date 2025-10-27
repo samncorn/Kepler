@@ -51,7 +51,16 @@ function propagate(pos, vel, dt, gm; max_iter = 20)
     # so for simplicity we use at most 3 points
     # solve for the regularized normalized universal anomaly
     # let the root finder bracket the root
-    y = find_zero(_y -> universal_kepler(_y, l, k1, k2, k3) - L, bracket, A42())
+    y = try
+        find_zero(_y -> universal_kepler(_y, l, k1, k2, k3) - L, bracket, A42())
+    catch err
+        @printf "initial position %.f %.f %.f\n" pos...
+        @printf "initial velocity %.f %.f %.f\n" vel...
+        @printf "dt %.f\n" dt
+        @printf "gm %.f\n" gm
+        throw("bad root find")
+    end
+    # y = find_zero(_y -> universal_kepler(_y, l, k1, k2, k3) - L, bracket, A42())
 
     # compute f and g functions
     _, c1, c2, c3 = stumpff(l*y^2)
@@ -78,23 +87,25 @@ function universal_kepler(y, l, k1, k2, k3)
 end
 
 function stumpff(z)
-    if z > 1e-6
+    if z > 1e-3
         c0 = cos(sqrt(z))
         c1 = sin(sqrt(z))/sqrt(z)
         c2 = (1 - c0)/z
         c3 = (1 - c1)/z
         return c0, c1, c2, c3
-    elseif z < -1e-6
+    elseif z < -1e-3
         c0 = cosh(sqrt(-z))
         c1 = sinh(sqrt(-z))/sqrt(-z)
         c2 = (1 - c0)/z
         c3 = (1 - c1)/z
         return c0, c1, c2, c3
     else
-        c0 = 1.0
-        c1 = 1.0
-        c2 = 1/2
-        c3 = 1/6
+        # z very small. evaluate the series to 6 terms 
+        # error is O(x^7) < 1e-21, well within floating point tolerances
+        c2 = (1-z*(1-z*(1-z*(1-z*(1-z*(1-z/182)/132)/90)/56)/30)/12)/2
+        c3 = (1-z*(1-z*(1-z*(1-z*(1-z*(1-z/210)/156)/110)/72)/42)/20)/6
+        c0 = 1 - z*c2
+        c1 = 1 - z*c3
         return c0, c1, c2, c3
     end
 end
