@@ -49,15 +49,13 @@ function propagate(pos, vel, dt, gm; max_iter = 20)
     # while we could retain as many points as we wish, using more points past 3 gives us very little improvement in the
     # convergence rate (as shown in the rootfinding paper on this method, add citation)
     # so for simplicity we use at most 3 points
-    # solve for the regularized normalized universal anomaly
-    # let the root finder bracket the root
     y = try
         find_zero(_y -> universal_kepler(_y, l, k1, k2, k3) - L, bracket, A42())
     catch err
-        @printf "initial position %.f %.f %.f\n" pos...
-        @printf "initial velocity %.f %.f %.f\n" vel...
-        @printf "dt %.f\n" dt
-        @printf "gm %.f\n" gm
+        @printf "initial position %.7f %.7f %.7f\n" pos...
+        @printf "initial velocity %.7f %.7f %.7f\n" vel...
+        @printf "dt %.7f\n" dt
+        @printf "gm %.7f\n" gm
         throw("bad root find")
     end
     # y = find_zero(_y -> universal_kepler(_y, l, k1, k2, k3) - L, bracket, A42())
