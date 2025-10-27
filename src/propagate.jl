@@ -52,10 +52,10 @@ function propagate(pos, vel, dt, gm; max_iter = 20)
     y = try
         find_zero(_y -> universal_kepler(_y, l, k1, k2, k3) - L, bracket, A42())
     catch err
-        @printf "initial position %.7f %.7f %.7f\n" pos...
-        @printf "initial velocity %.7f %.7f %.7f\n" vel...
-        @printf "dt %.7f\n" dt
-        @printf "gm %.7f\n" gm
+        println("initial pos = $pos")
+        println("initial vel = $vel")
+        println("dt = $dt")
+        println("gm = $gm")
         throw("bad root find")
     end
     # y = find_zero(_y -> universal_kepler(_y, l, k1, k2, k3) - L, bracket, A42())
