@@ -4,7 +4,7 @@ function solve(pos0, vel0, dt, gm; max_iter = 20)
     return Kepler.propagate(pos0, vel0, dt, gm; max_iter = max_iter)
 end
 
-""" New and improved keplerian 2body propagator. Uses the form of Danby (dt from initial time, rather than from periapse)
+""" New and improved keplerian propagator. Uses the form of Danby (dt from initial time, rather than from periapse)
 with the nondimensionalization of Fukushima (more elegant). Brackets the root in all cases. throws an error for rectilinear orbits.
 """
 function propagate(pos, vel, dt, gm; max_iter = 20)
@@ -42,23 +42,25 @@ function propagate(pos, vel, dt, gm; max_iter = 20)
     # bracket the root in y
     bracket = (0.0, 1.1L)
 
-    # in these units, dy/dL <= 1, so L(dt) will always be an upper bound, regardless of orbit
+    # in these units, dy/dL <= 1, so L(dt) will always be an upper bound (baring floating point treachery), regardless of orbit
     # rather than choosing better initial guesses (which exist but are orbit dependant), we can instead use higher 
     # derivates (which are cheap for us) to better interpolate our interval
     # we can than use the first step to generate an even better interpolant for steps past that
     # while we could retain as many points as we wish, using more points past 3 gives us very little improvement in the
     # convergence rate (as shown in the rootfinding paper on this method, add citation)
     # so for simplicity we use at most 3 points
+    # y = find_zero(_y -> universal_kepler(_y, l, k1, k2, k3) - L, bracket, A42())    
     y = try
         find_zero(_y -> universal_kepler(_y, l, k1, k2, k3) - L, bracket, A42())
-    catch err
+        # L
+    catch _
         println("initial pos = $pos")
         println("initial vel = $vel")
         println("dt = $dt")
         println("gm = $gm")
         throw("bad root find")
     end
-    # y = find_zero(_y -> universal_kepler(_y, l, k1, k2, k3) - L, bracket, A42())
+    # 
 
     # compute f and g functions
     _, c1, c2, c3 = stumpff(l*y^2)

@@ -1,4 +1,5 @@
 # %%
+using Pkg; Pkg.activate()
 using Kepler
 using StaticArrays
 using LinearAlgebra
@@ -6,6 +7,7 @@ using Printf
 using SPICE
 using Logging
 using Roots
+using BenchmarkTools
 # %%
 
 debug_logger = ConsoleLogger(stderr, Logging.Debug)
@@ -43,10 +45,15 @@ global_logger(debug_logger)
 # dt  = -5.998977942803302
 # gm  = 0.0002959122082326087
 
-pos = [-1.8334693215194804, -0.7424496266825248, -0.2952266528773983]
-vel = [0.004858030562369436, -0.010253429035065403, -0.004384412542682951]
-dt = 3.0695209246163175
-gm = 0.0002959122082326087
+# pos = [-1.8334693215194804, -0.7424496266825248, -0.2952266528773983]
+# vel = [0.004858030562369436, -0.010253429035065403, -0.004384412542682951]
+# dt = 3.0695209246163175
+# gm = 0.0002959122082326087
+
+pos = [-1.4613756, -2.561916, -0.54860514]
+vel = [0.00862502, -0.0049213725, 6.777164f-6]
+dt  = 1.1746660000644624
+gm  = 0.0002959122082326087
 
 # test and compare to spice
 posf, velf = Kepler.propagate(pos, vel, dt, gm)
@@ -56,6 +63,12 @@ velf2 = statef[4:6]
 
 posf - posf2
 velf - velf2
+
+# becnhmark
+p0 = SVector{3}(pos)
+v0 = SVector{3}(vel)
+
+@benchmark Kepler.propagate($p0, $v0, $dt, $gm)
 
 # # break down internals
 function stumpff(z)
