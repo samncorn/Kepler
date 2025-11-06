@@ -47,7 +47,7 @@ function cometary(pos, vel, epoch, gm)
     end
 
     w = acos(dot(node, evec)/e)
-    if e[3] < 0
+    if evec[3] < 0
         w = 2pi - w
     end
 
@@ -59,17 +59,18 @@ function cometary(pos, vel, epoch, gm)
     # should make a better parablic case computation to smooth numeric problems
     # series given in Fukushima (1999)
     y = if l > 0
-        2atan(sqrt(l*tau))/sqrt(l)
+        2atan(sqrt(l)*tau)/sqrt(l)
     elseif l < 0
-        2atanh(sqrt(-l)*tau)/sqrt(-tau)
+        2atanh(sqrt(-l)*tau)/sqrt(-l)
     else
         2tau
     end
 
     # times
     v = sqrt(gm*(1 + e)/(q^3))
-    k1 = r0/q
-    k2 = r0*dr0/(v*(q^2))
+    k1 = 1.0
+    # k2 = dr0/(v*(q^2))
+    k2 = 0.0
     k3 = gm/((v^2)*(q^3))
     L  = universal_kepler(y, l, k1, k2, k3)
     dt = L/v

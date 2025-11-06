@@ -121,6 +121,8 @@ vel = [-9.165459464372124e-5, 0.04049187111210227, 0.015647875649757625]
 dt = 9.96469299821183
 gm = 0.0002959122082326087
 
+q, e, i, Om, w, tp = Kepler.cometary(pos, vel, dt, gm)
+
 # test and compare to spice
 posf, velf = Kepler.propagate(pos, vel, dt, gm)
 statef = SPICE.prop2b(gm, [pos..., vel...], dt)
