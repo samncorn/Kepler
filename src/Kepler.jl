@@ -42,7 +42,7 @@ function cometary(pos, vel, epoch, gm)
     i = acos(hvec[3]/h)
 
     Om = acos(node[1])
-    if n[2] < 0
+    if node[2] < 0
         Om = 2pi - Om
     end
 
