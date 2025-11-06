@@ -2,7 +2,7 @@
 
 julia_version = "1.12.0"
 manifest_format = "2.0"
-project_hash = "e55ed775b097e38f4b632ccf1e43adb50a2ef74e"
+project_hash = "744d90c3ff78e66a9af20831ff5057e2a365bab6"
 
 [[deps.Accessors]]
 deps = ["CompositionsBase", "ConstructionBase", "Dates", "InverseFunctions", "MacroTools"]
@@ -174,12 +174,10 @@ deps = ["CommonSubexpressions", "DiffResults", "DiffRules", "LinearAlgebra", "Lo
 git-tree-sha1 = "afb7c51ac63e40708a3071f80f5e84a752299d4f"
 uuid = "f6369f11-7733-5829-9624-2563aa707210"
 version = "0.10.39"
+weakdeps = ["StaticArrays"]
 
     [deps.ForwardDiff.extensions]
     ForwardDiffStaticArraysExt = "StaticArrays"
-
-    [deps.ForwardDiff.weakdeps]
-    StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 
 [[deps.GPUCompiler]]
 deps = ["ExprTools", "InteractiveUtils", "LLVM", "Libdl", "Logging", "PrecompileTools", "Preferences", "Scratch", "Serialization", "TOML", "Tracy", "UUIDs"]
@@ -225,7 +223,7 @@ version = "1.12.0"
 deps = ["DiffResults", "Enzyme", "ForwardDiff", "LinearAlgebra", "Printf", "Roots", "SPICE"]
 path = "."
 uuid = "adce7ac5-41de-41eb-81d7-62287823a1c6"
-version = "0.1.2"
+version = "0.2.0"
 
 [[deps.LLVM]]
 deps = ["CEnum", "LLVMExtra_jll", "Libdl", "Preferences", "Printf", "Unicode"]
@@ -457,6 +455,20 @@ version = "2.6.1"
 
     [deps.SpecialFunctions.weakdeps]
     ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
+
+[[deps.StaticArrays]]
+deps = ["LinearAlgebra", "PrecompileTools", "Random", "StaticArraysCore"]
+git-tree-sha1 = "b8693004b385c842357406e3af647701fe783f98"
+uuid = "90137ffa-7385-5640-81b9-e52037218182"
+version = "1.9.15"
+
+    [deps.StaticArrays.extensions]
+    StaticArraysChainRulesCoreExt = "ChainRulesCore"
+    StaticArraysStatisticsExt = "Statistics"
+
+    [deps.StaticArrays.weakdeps]
+    ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
+    Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
 [[deps.StaticArraysCore]]
 git-tree-sha1 = "192954ef1208c7019899fbf8049e717f92959682"
