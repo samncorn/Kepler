@@ -75,7 +75,7 @@ function cometary(pos, vel, epoch, gm)
     L  = universal_kepler(y, l, k1, k2, k3)
     dt = L/v
 
-    return q, e, i, Om, w, dt + epoch
+    return q, e, i, Om, w, epoch - dt
 end
 
 """ assumes radians
