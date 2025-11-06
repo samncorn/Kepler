@@ -36,7 +36,7 @@ function cometary(pos, vel, epoch, gm)
     h2   = dot(hvec, hvec)
     h    = sqrt(h2)
     q    = h2/gm/(1 + e)
-    l    = (1-e)/(a+e)
+    l    = (1-e)/(1+e)
 
     # angles
     i = acos(hvec[3]/h)
