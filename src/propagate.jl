@@ -54,8 +54,9 @@ function propagate(pos, vel, dt, gm; max_iter = 20)
         find_zero(_y -> universal_kepler(_y, l, k1, k2, k3) - L, bracket, A42())
         # L
     catch _
-        println("initial pos = $pos")
-        println("initial vel = $vel")
+        println("orbit failed, dumping initial conditions...")
+        println("pos = $pos")
+        println("vel = $vel")
         println("dt = $dt")
         println("gm = $gm")
         throw("bad root find")
