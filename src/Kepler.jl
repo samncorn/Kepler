@@ -34,7 +34,7 @@ function cometary(pos, vel, epoch, gm)
     evec = ((v2 - gm/r)*pos - dot(pos, vel)*vel)/gm
     e    = norm(evec)
     h2   = dot(hvec, hvec)
-    h    = sqrt(h)
+    h    = sqrt(h2)
     q    = h2/gm/(1 + e)
     l    = (1-e)/(a+e)
 
