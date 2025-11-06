@@ -1,6 +1,7 @@
 module Kepler
 
 using Roots
+using StaticArrays
 using LinearAlgebra
 using Enzyme
 using Printf
