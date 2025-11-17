@@ -4,55 +4,51 @@ function solve(pos0, vel0, dt, gm; max_iter = 20)
     return Kepler.propagate(pos0, vel0, dt, gm; max_iter = max_iter)
 end
 
-""" New and improved keplerian propagator. Uses the form of Danby (dt from initial time, rather than from periapse)
-with the nondimensionalization of Fukushima (more elegant). Brackets the root in all cases. throws an error for rectilinear orbits.
-"""
+"Universal kepler solver. normalizes to canonical units"
 function propagate(pos, vel, dt, gm; max_iter = 20)
-    # given this formulation, everything is defined unless we have a rectilinear orbit
-    # 
-    if all(vel .== 0) || all(pos .== 0) 
-        throw("invalid orbit")
+    if dt == 0
+        return pos, vel
     end
 
-    if dt == 0
-        return (pos, vel)
-    elseif dt < 0
+    if dt < 0
         posf, velf = propagate(pos, -vel, -dt, gm; max_iter = max_iter)
         return posf, -velf
     end
 
-    # compute our orbital constants
-    hvec = cross(pos, vel)
-    h2   = dot(hvec, hvec)
-    r0   = norm(pos)
-    dr0  = dot(vel, pos)/r0
-    v20  = dot(vel, vel)
-    a    = 2gm/r0 - v20
-    e    = sqrt(1 - a*h2/gm^2)
-    q    = h2/(gm*(1 + e))
-    l    = (1-e)/(1+e)
+    # constants
+    r0 = norm(pos)
+    s0 = dot(pos, vel)
+    b  = 2gm/r0 - dot(vel, vel)
 
-    # compute the constants of nondimensional universal kepler equation
-    nu = sqrt(gm*(1 + e)/(q^3))
-    L  = nu*dt
-    k1 = r0/q
-    k2 = r0*dr0/(nu*(q^2))
-    k3 = gm/((nu^2)*(q^3))
+    # try to bracket the root
+    # dt/dx = r >= 0, and monotonic, so we can step until we find a bracket
+    # bracket = (0.0, dt/r)
+    xl = 0.0
+    yl = -dt
 
-    # bracket the root in y
-    bracket = (0.0, 1.1L)
+    xh = dt/r0
+    dth, rh = universal_kepler2(xh, b, r0, s0, gm)
+    yh = dth - dt
 
-    # in these units, dy/dL <= 1, so L(dt) will always be an upper bound (baring floating point treachery), regardless of orbit
-    # rather than choosing better initial guesses (which exist but are orbit dependant), we can instead use higher 
-    # derivates (which are cheap for us) to better interpolate our interval
-    # we can than use the first step to generate an even better interpolant for steps past that
-    # while we could retain as many points as we wish, using more points past 3 gives us very little improvement in the
-    # convergence rate (as shown in the rootfinding paper on this method, add citation)
-    # so for simplicity we use at most 3 points
-    # y = find_zero(_y -> universal_kepler(_y, l, k1, k2, k3) - L, bracket, A42())    
-    y = try
-        find_zero(_y -> universal_kepler(_y, l, k1, k2, k3) - L, bracket, A42())
-        # L
+    while sign(yl) == sign(yh) || isinf(dth) || isnan(dth)
+        if sign(yl) == sign(yh)
+            xl  = xh
+            xh += (dt - dth)/rh
+            yl  = yh
+            dth, rh = universal_kepler2(xh, b, r0, s0, gm)
+            yh  = dth - dt
+        elseif isinf(dth) || isnan(dth)
+            xh = (xl + xh)/2
+            dth, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
+            yh = dth - dt
+            if xl == xh 
+                throw("dt exceeds the computable range of values")
+            end
+        end
+    end
+
+    x = try
+        find_zero(_x -> universal_kepler(_x, b, r0, s0, gm) - dt, (xl, xh), A42())
     catch _
         println("orbit failed, dumping initial conditions...")
         println("pos = $pos")
@@ -61,30 +57,137 @@ function propagate(pos, vel, dt, gm; max_iter = 20)
         println("gm = $gm")
         throw("bad root find")
     end
-    # 
 
     # compute f and g functions
-    _, c1, c2, c3 = stumpff(l*y^2)
-
-    # 
-    # s = y/vp
-    s =  y*sqrt(q/(gm*(1+e)))
-    f =  1 - (gm/r0)*(s^2)*c2
-    g = dt - gm*(s^3)*c3
+    _, c1, c2, c3 = stumpff(b*x^2)
+    f    = 1 - (gm/r0)*(x^2)*c2
+    g    = dt - gm*(x^3)*c3
     posf = f*pos + g*vel
-
-    rf = norm(posf)
-    df = -(gm/(rf*r0))*s*c1
-    dg = 1 - (gm/rf)*(s^2)*c2
+    rf   = norm(posf)
+    df   = -(gm/(rf*r0))*x*c1
+    dg   = 1 - (gm/rf)*(x^2)*c2
     velf = df*pos + dg*vel
 
     return posf, velf
 end
 
-function universal_kepler(y, l, k1, k2, k3)
-    _, c1, c2, c3 = stumpff(l*y^2)
-    L = y*(k1*c1 + y*(k2*c2 + y*k3*c3))
-    return L
+function propagate_with_partials(pos, vel, dt, gm; max_iter = 20)
+    if dt == 0
+        return pos, vel
+    end
+
+    if dt < 0
+        posf, velf = propagate(pos, -vel, -dt, gm; max_iter = max_iter)
+        return posf, -velf
+    end
+
+    # constants
+    r0 = norm(pos)
+    s0 = dot(pos, vel)
+    b  = 2gm/r0 - dot(vel, vel)
+
+    # try to bracket the root
+    # dt/dx = r >= 0, and monotonic, so we can step until we find a bracket
+    # bracket = (0.0, dt/r)
+    xl = 0.0
+    yl = -dt
+
+    xh = dt/r0
+    dth, rh = universal_kepler2(xh, b, r0, s0, gm)
+    yh = dth - dt
+
+    while sign(yl) == sign(yh) || isinf(dth)
+        if sign(yl) == sign(yh)
+            xl  = xh
+            xh += (dt - dth)/rh
+            yl  = yh
+            dth, rh = universal_kepler2(xh, b, r0, s0, gm)
+            yh  = dth - dt
+        elseif isinf(dth)
+            xh = (xl + xh)/2
+            dth, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
+            yh = dth - dt
+            if xl == xh 
+                throw("dt exceeds the computable range of values")
+            end
+        end
+    end
+  
+    x = try
+        find_zero(_x -> universal_kepler(_x, b, r0, s0, gm) - dt, (xl, xh), A42())
+    catch _
+        println("orbit failed, dumping initial conditions...")
+        println("pos = $pos")
+        println("vel = $vel")
+        println("dt = $dt")
+        println("gm = $gm")
+        throw("bad root find")
+    end
+
+    # compute f and g functions
+    _, c1, c2, c3 = stumpff(b*x^2)
+    f    = 1 - (gm/r0)*(x^2)*c2
+    g    = dt - gm*(x^3)*c3
+    posf = f*pos + g*vel
+    rf   = norm(posf)
+    df   = -(gm/(rf*r0))*x*c1
+    dg   = 1 - (gm/rf)*(x^2)*c2
+    velf = df*pos + dg*vel
+
+    # partials (Goodyear 1965)
+    U = x^2 * (c2*dt + gm*x^5*(b*x*c4 - 3c5))
+    W = g*c2*y^2 + 3*gm*U 
+    # intermediate matrix
+    M = SMatrix{3, 3}(
+        (U/(rf*r0) + 1/r0^2 + 1/rf^2)df - W*gm^2/(rf*r0)^3,
+        df*y*c1/rf + (dg - 1)/rf^2,
+        (dg - 1)*y*c1/rf - W*gm/rf^3,
+        -df*y*c1/r0 - (f - 1)/r0^2,
+        -df*c2*y^2,
+        -(dg - 1)*c2*y^2,
+        (f - 1)*c1*y/r0 - W*gm/r0^3,
+        (f - 1)*c2*y^2,
+        g*c2*y^2 - W
+    )
+
+    # sub matrices
+    RV  = hcat(posf, velf)
+    RV0 = transpose(hcat(pos, vel))
+    M1  = SMatrix{2, 2}(M[2, 1], M[2, 2], M[3, 1], M[3, 2])
+    M2  = SMatrix{2, 2}(M[2, 2], M[2, 3], M[3, 2], M[3, 3])
+    M3  = SMatrix{2, 2}(M[1, 1], M[1, 2], M[2, 1], M[2, 2])
+    M4  = SMatrix{2, 2}(M[1, 2], M[1, 3], M[2, 2], M[2, 3])
+
+    PHI11 = f*I3 + RV*M1*RV0
+    PHI12 = g*I3 + RV*M2*RV0
+    PHI21 = df*I3 - RV*M3*RV0
+    PHI22 = dg*I3 - RV*M4*RV0
+
+    # final 6x6
+    # PHI = vcat(hcat(PHI11, PHI12), hcat(PHI21, PHI22))
+
+    return posf, velf, PHI11, PHI12, PHI21, PHI22
+end
+
+# function universal_kepler(y, l, k1, k2, k3)
+#     _, c1, c2, c3 = stumpff(l*y^2)
+#     L = y*(k1*c1 + y*(k2*c2 + y*k3*c3))
+#     return L
+# end
+
+function universal_kepler(x, b, r0, s0, gm)
+    z  = b*x^2
+    _, c1, c2, c3 = stumpff(z)
+    dt = x*(r0*c1 + x*(s0*c2 + gm*x*c3))
+    return dt
+end
+
+function universal_kepler2(x, b, r0, s0, gm)
+    z  = b*x^2
+    c0, c1, c2, c3 = stumpff(z)
+    dt = x*(r0*c1 + x*(s0*c2 + gm*x*c3))
+    r  = r0*c0 + x*(s0*c1 + x*gm*c2)
+    return dt, r
 end
 
 function stumpff(z)

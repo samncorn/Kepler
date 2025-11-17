@@ -12,13 +12,19 @@ include("stumpff.jl")
 include("propagate.jl")
 include("Lambert.jl")
 
-xrot(x) = SVector{3, 3}((
+const I3 = SMatrix{3, 3}((
+    1.0, 0.0, 0.0,
+    0.0, 1.0, 0.0,
+    0.0, 0.0, 1.0,
+    ))
+
+xrot(x) = SMatrix{3, 3}((
     1.0, 0.0, 0.0,
     0.0, cos(x), sin(x),
     0.0, -sin(x), cos(x)
     ))
 
-zrot(x) = SVector{3, 3}((
+zrot(x) = SMatrix{3, 3}((
     cos(x), sin(x), 0.0,
     -sin(x), cos(x), 0.0,
     0.0, 0.0, 1.0,

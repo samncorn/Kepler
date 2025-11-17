@@ -50,10 +50,10 @@ global_logger(debug_logger)
 # dt = 3.0695209246163175
 # gm = 0.0002959122082326087
 
-pos = [-2.605657, -1.4783354, 0.15835176]
-vel = [0.004609774, -0.008403798, -0.0026038089]
-dt  = -3.163144998718053
-gm  = 0.0002959122082326087
+# pos = [-2.605657, -1.4783354, 0.15835176]
+# vel = [0.004609774, -0.008403798, -0.0026038089]
+# dt  = -3.163144998718053
+# gm  = 0.0002959122082326087
 
   #   pos = Float32[-1.3784086, -2.4442484, -1.0609612]
 #   vel = Float32[0.008740334, -0.0046784547, -0.0005773584]
@@ -116,15 +116,82 @@ gm  = 0.0002959122082326087
 #   dt  = 6.12485099863261
 #   gm  = 0.0002959122082326087
 
-pos = [-0.0005851491971243794, -2.964878053101466, -1.155167716817128]
-vel = [-9.165459464372124e-5, 0.04049187111210227, 0.015647875649757625]
-dt = 9.96469299821183
+# [FIXED] near rectilinear, need to devise a solution 
+# pos = [-0.0005851491971243794, -2.964878053101466, -1.155167716817128]
+# vel = [-9.165459464372124e-5, 0.04049187111210227, 0.015647875649757625]
+# dt = 9.96469299821183
+# gm = 0.0002959122082326087
+
+# [FIXED?] tring an actiual rectilinear case
+# SPICE cannot handle rectilinear cases, but the universal variables equations are still valid
+# pos = [-0.0005851491971243794, -2.964878053101466, -1.155167716817128]
+# vel = [0.0, 0.0, 0.0]
+# dt = 9.96469299821183
+# gm = 0.0002959122082326087
+
+# found in the wild
+# very hyperbolic, initial guess overflows
+# pos = [2.0018040983461143, 4.310971608104017, -1.4324077743346348]
+# vel = [340.5788770104138, 455.2580303275891, -243.9375394403128]
+# dt = 9.582662548925576
 gm = 0.0002959122082326087
+
+pos = [2.2275391726284246, 57.18786513542615, 655.9177224430462]
+vel = [0.999466534019431, 30.149863863535487, -878.3833478838895]
+dt  = 630.2967702062505
+
+r0 = norm(pos)
+s0 = dot(pos, vel)
+b  = 2gm/r0 - dot(vel, vel)
+
+xl = 0.0
+yl = -dt
+
+xh = dt/r0
+dth, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
+yh = dth - dt
+
+while isinf(dth) || isnan(dth)
+    xh = (xl + xh)/2
+    dth, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
+    yh = dth - dt
+    @printf "xh = %.6e yh = %.6e\n" xh yh
+end
+
+xh = (xl + xh)/2
+dth, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
+yh = dth - dt
+@printf "xh = %.6e yh = %.6e\n" xh yh
+
+i = 0
+while sign(yl) == sign(yh) && i < 10
+    i  += 1
+    xl  = xh
+    xh += (dt - dth)/rh
+
+    yl = yh
+    dth, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
+    yh = dth - dt
+    @printf "xh = %.6e yh = %.6e\n" xh yh
+end
+
+for ti in -14:0.1:14
+    println(ti)
+    posf, velf = Kepler.propagate(pos, vel, ti, gm)
+end
+
+posf, velf = Kepler.propagate(pos, vel, dt, gm)
+statef = SPICE.prop2b(gm, [pos..., vel...], dt)
+posf2 = statef[1:3]
+velf2 = statef[4:6]
+
+posf - posf2
+velf - velf2
 
 q, e, i, Om, w, tp = Kepler.cometary(pos, vel, dt, gm)
 
 # test and compare to spice
-posf, velf = Kepler.propagate(pos, vel, dt, gm)
+posf, velf, phi11, phi12, phi21, phi22 = Kepler.propagate_with_partials(pos, vel, dt, gm)
 statef = SPICE.prop2b(gm, [pos..., vel...], dt)
 posf2 = statef[1:3]
 velf2 = statef[4:6]
@@ -189,7 +256,9 @@ bracket = (0.0, L)
 x0 = sqrt(q/(1+e))*L
 z0 = l*L^2 
 
-universal_kepler(1.1L, l, k1, k2, k3) - L
+universal_kepler(L, l, k1, k2, k3) - L
+
+stumpff(z0)
 
 y = find_zero(_y -> universal_kepler(_y, l, k1, k2, k3) - L, L, A42())
 universal_kepler(y, l, k1, k2, k3) - L
