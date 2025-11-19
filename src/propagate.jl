@@ -48,7 +48,7 @@ function propagate(pos, vel, dt, gm; max_iter = 20)
     end
 
     x = try
-        find_zero(_x -> universal_kepler(_x, b, r0, s0, gm) - dt, (xl, xh), A42())
+        find_zero(_x -> universal_kepler(_x, b, r0, s0, gm) - dt, (xl, xh), Bisection())
     catch _
         throw((pos = pos, vel = vel, dt = dt, gm = gm))
     end
