@@ -8,17 +8,18 @@ using SPICE
 using Logging
 using Roots
 using BenchmarkTools
+using ForwardDiff
 # %%
 
 debug_logger = ConsoleLogger(stderr, Logging.Debug)
 global_logger(debug_logger)
 
 # test from vallado
-# T = Float64
-# pos = T.([1131.340, -2282.343, 6672.423])
-# vel = T.([-5.64305, 4.30333, 2.42879])
-# dt  = T(40.0*60.0)
-# gm  = T(398600.4415)# per vallado
+T = Float64
+pos = T.([1131.340, -2282.343, 6672.423])
+vel = T.([-5.64305, 4.30333, 2.42879])
+dt  = T(40.0*60.0)
+gm  = T(398600.4415)# per vallado
 
 # case that fails in the wild [FIXED]
 # pos = [1.25, 0.0, 0.0]
@@ -134,53 +135,41 @@ global_logger(debug_logger)
 # pos = [2.0018040983461143, 4.310971608104017, -1.4324077743346348]
 # vel = [340.5788770104138, 455.2580303275891, -243.9375394403128]
 # dt = 9.582662548925576
-gm = 0.0002959122082326087
+# gm = 0.0002959122082326087
 
-pos = [2.2275391726284246, 57.18786513542615, 655.9177224430462]
-vel = [0.999466534019431, 30.149863863535487, -878.3833478838895]
-dt  = 630.2967702062505
+# pos = [2.2275391726284246, 57.18786513542615, 655.9177224430462]
+# vel = [0.999466534019431, 30.149863863535487, -878.3833478838895]
+# dt  = 630.2967702062505
 
-r0 = norm(pos)
-s0 = dot(pos, vel)
-b  = 2gm/r0 - dot(vel, vel)
+# check partials
+dxdx_auto = ForwardDiff.jacobian(x -> Kepler.propagate(x, vel, dt, gm)[1], pos)
+dxdv_auto = ForwardDiff.jacobian(x -> Kepler.propagate(pos, x, dt, gm)[1], vel)
+dvdx_auto = ForwardDiff.jacobian(x -> Kepler.propagate(x, vel, dt, gm)[2], pos)
+dvdv_auto = ForwardDiff.jacobian(x -> Kepler.propagate(pos, x, dt, gm)[2], vel)
 
-xl = 0.0
-yl = -dt
 
-xh = dt/r0
-dth, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
-yh = dth - dt
+# check against finite difference
+# dx = [1e-3, 1e-3, 1e-3]
+# dv = [1e-6, 1e-6, 1e-6]
 
-while isinf(dth) || isnan(dth)
-    xh = (xl + xh)/2
-    dth, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
-    yh = dth - dt
-    @printf "xh = %.6e yh = %.6e\n" xh yh
-end
+# posf, velf = Kepler.propagate(pos, vel, dt, gm)
+posf, velf, dxdx, dxdv, dvdx, dvdv = Kepler.propagate_with_partials(pos, vel, dt, gm)
 
-xh = (xl + xh)/2
-dth, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
-yh = dth - dt
-@printf "xh = %.6e yh = %.6e\n" xh yh
+dxdx .- dxdx_auto
+dxdv .- dxdv_auto
+dvdx .- dvdx_auto
+dvdv .- dvdv_auto
 
-i = 0
-while sign(yl) == sign(yh) && i < 10
-    i  += 1
-    xl  = xh
-    xh += (dt - dth)/rh
+# posf4, velf4 = Kepler.propagate(pos + dx, vel, dt, gm)
+# (posf4 - posf) ./ (dxdx_auto * dx)
 
-    yl = yh
-    dth, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
-    yh = dth - dt
-    @printf "xh = %.6e yh = %.6e\n" xh yh
-end
+# posf3, velf3, dxdx, dxdv, dvdx, dvdv = Kepler.propagate_with_partials(pos, vel, dt, gm)
+# posf3, velf3, dxdx = Kepler.propagate_with_partials(pos, vel, dt, gm)
+# dxdx
 
-for ti in -14:0.1:14
-    println(ti)
-    posf, velf = Kepler.propagate(pos, vel, ti, gm)
-end
+# (posf4 - posf) ./ (dxdx * dx)
 
-posf, velf = Kepler.propagate(pos, vel, dt, gm)
+# check state against spice
 statef = SPICE.prop2b(gm, [pos..., vel...], dt)
 posf2 = statef[1:3]
 velf2 = statef[4:6]
@@ -198,71 +187,3 @@ velf2 = statef[4:6]
 
 posf - posf2
 velf - velf2
-
-# becnhmark
-p0 = SVector{3}(pos)
-v0 = SVector{3}(vel)
-
-@benchmark Kepler.propagate($p0, $v0, $dt, $gm)
-
-# # break down internals
-function stumpff(z)
-    if z > 1e-6
-        c0 = cos(sqrt(z))
-        c1 = sin(sqrt(z))/sqrt(z)
-        c2 = (1 - c0)/z
-        c3 = (1 - c1)/z
-        return c0, c1, c2, c3
-    elseif z < -1e-6
-        c0 = cosh(sqrt(-z))
-        c1 = sinh(sqrt(-z))/sqrt(-z)
-        c2 = (1 - c0)/z
-        c3 = (1 - c1)/z
-        return c0, c1, c2, c3
-    else
-        # z very small. evaluate the series to 6 terms 
-        # error is O(x^7) < 1e-21, well within floating point tolerances
-        c2 = (1-z*(1-z*(1-z*(1-z*(1-z*(1-z/182)/132)/90)/56)/30)/12)/2
-        c3 = (1-z*(1-z*(1-z*(1-z*(1-z*(1-z/210)/156)/110)/72)/42)/20)/6
-        c0 = 1 - z*c2
-        c1 = 1 - z*c3
-        return c0, c1, c2, c3
-    end
-end
-
-function universal_kepler(y, l, k1, k2, k3)
-    _, c1, c2, c3 = stumpff(l*y^2)
-    L = y*(k1*c1 + y*(k2*c2 + y*k3*c3))
-    return L
-end
-
-hvec = cross(pos, vel)
-h2   = dot(hvec, hvec)
-r0   = norm(pos)
-dr0  = dot(vel, pos)/r0
-v20  = dot(vel, vel)
-a    = 2gm/r0 - v20
-e    = sqrt(1 - a*h2/gm^2)
-q    = h2/(gm*(1 + e))
-l    = (1-e)/(1+e)
-
-nu = sqrt(gm*(1 + e)/(q^3))
-L  = nu*dt
-k1 = r0/q
-k2 = r0*dr0/(nu*(q^2))
-k3 = gm/((nu^2)*(q^3))
-
-bracket = (0.0, L)
-x0 = sqrt(q/(1+e))*L
-z0 = l*L^2 
-
-universal_kepler(L, l, k1, k2, k3) - L
-
-stumpff(z0)
-
-y = find_zero(_y -> universal_kepler(_y, l, k1, k2, k3) - L, L, A42())
-universal_kepler(y, l, k1, k2, k3) - L
-
-# 
-x = sqrt(q/(1+e))*y
-l*y^2

@@ -50,12 +50,7 @@ function propagate(pos, vel, dt, gm; max_iter = 20)
     x = try
         find_zero(_x -> universal_kepler(_x, b, r0, s0, gm) - dt, (xl, xh), A42())
     catch _
-        println("orbit failed, dumping initial conditions...")
-        println("pos = $pos")
-        println("vel = $vel")
-        println("dt = $dt")
-        println("gm = $gm")
-        throw("bad root find")
+        throw((pos = pos, vel = vel, dt = dt, gm = gm))
     end
 
     # compute f and g functions
@@ -96,14 +91,14 @@ function propagate_with_partials(pos, vel, dt, gm; max_iter = 20)
     dth, rh = universal_kepler2(xh, b, r0, s0, gm)
     yh = dth - dt
 
-    while sign(yl) == sign(yh) || isinf(dth)
+    while sign(yl) == sign(yh) || isinf(dth) || isnan(dth)
         if sign(yl) == sign(yh)
             xl  = xh
             xh += (dt - dth)/rh
             yl  = yh
             dth, rh = universal_kepler2(xh, b, r0, s0, gm)
             yh  = dth - dt
-        elseif isinf(dth)
+        elseif isinf(dth) || isnan(dth)
             xh = (xl + xh)/2
             dth, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
             yh = dth - dt
@@ -116,16 +111,12 @@ function propagate_with_partials(pos, vel, dt, gm; max_iter = 20)
     x = try
         find_zero(_x -> universal_kepler(_x, b, r0, s0, gm) - dt, (xl, xh), A42())
     catch _
-        println("orbit failed, dumping initial conditions...")
-        println("pos = $pos")
-        println("vel = $vel")
-        println("dt = $dt")
-        println("gm = $gm")
-        throw("bad root find")
+        throw((pos = pos, vel = vel, dt = dt, gm = gm))
     end
 
     # compute f and g functions
-    _, c1, c2, c3 = stumpff(b*x^2)
+    _, c1, c2, c3, c4, c5 = stumpff5(b*x^2)
+
     f    = 1 - (gm/r0)*(x^2)*c2
     g    = dt - gm*(x^3)*c3
     posf = f*pos + g*vel
@@ -134,39 +125,22 @@ function propagate_with_partials(pos, vel, dt, gm; max_iter = 20)
     dg   = 1 - (gm/rf)*(x^2)*c2
     velf = df*pos + dg*vel
 
-    # partials (Goodyear 1965)
-    U = x^2 * (c2*dt + gm*x^5*(b*x*c4 - 3c5))
-    W = g*c2*y^2 + 3*gm*U 
-    # intermediate matrix
-    M = SMatrix{3, 3}(
-        (U/(rf*r0) + 1/r0^2 + 1/rf^2)df - W*gm^2/(rf*r0)^3,
-        df*y*c1/rf + (dg - 1)/rf^2,
-        (dg - 1)*y*c1/rf - W*gm/rf^3,
-        -df*y*c1/r0 - (f - 1)/r0^2,
-        -df*c2*y^2,
-        -(dg - 1)*c2*y^2,
-        (f - 1)*c1*y/r0 - W*gm/r0^3,
-        (f - 1)*c2*y^2,
-        g*c2*y^2 - W
-    )
+    # compute the partials (Battin)
+    C = gm*(x^2)*(gm*(x^3)*(3c5 - c4) - dt*c2)
+    delr = posf - pos
+    delv = velf - vel
 
-    # sub matrices
-    RV  = hcat(posf, velf)
-    RV0 = transpose(hcat(pos, vel))
-    M1  = SMatrix{2, 2}(M[2, 1], M[2, 2], M[3, 1], M[3, 2])
-    M2  = SMatrix{2, 2}(M[2, 2], M[2, 3], M[3, 2], M[3, 3])
-    M3  = SMatrix{2, 2}(M[1, 1], M[1, 2], M[2, 1], M[2, 2])
-    M4  = SMatrix{2, 2}(M[1, 2], M[1, 3], M[2, 2], M[2, 3])
+    dxdx = (rf/gm)*delv*transpose(delv) + (1/r0^3)*(r0*(1-f)*posf*transpose(pos) + C*velf*transpose(pos)) + f*I3
+    dxdv = (r0/gm)*(1-f)*(delr*transpose(vel) - delv*transpose(pos)) + (C/gm)*velf*transpose(vel) + g*I3
+    dvdx = (
+        - (1/r0^2)*delv*transpose(pos) 
+        - (1/rf^2)*posf*transpose(delv) 
+        + df*(I3 - (1/rf^2)*posf*transpose(posf) + (1/(rf*gm))*(posf*transpose(velf) - velf*transpose(posf))*posf*transpose(delv))
+        - gm*C/(rf*r0)^3*posf*transpose(pos)
+        )
+    dvdv = (r0/gm)*delv*transpose(delv) + (1/rf^3)*(r0*(1-f)*posf*transpose(pos) - C*posf*transpose(vel)) + dg*I3
 
-    PHI11 = f*I3 + RV*M1*RV0
-    PHI12 = g*I3 + RV*M2*RV0
-    PHI21 = df*I3 - RV*M3*RV0
-    PHI22 = dg*I3 - RV*M4*RV0
-
-    # final 6x6
-    # PHI = vcat(hcat(PHI11, PHI12), hcat(PHI21, PHI22))
-
-    return posf, velf, PHI11, PHI12, PHI21, PHI22
+    return posf, velf, dxdx, dxdv, dvdx, dvdv
 end
 
 # function universal_kepler(y, l, k1, k2, k3)
@@ -213,6 +187,52 @@ function stumpff(z)
         return c0, c1, c2, c3
     end
 end
+
+function stumpff5(z)
+    if z > 1e-3
+        c0 = cos(sqrt(z))
+        c1 = sin(sqrt(z))/sqrt(z)
+        c2 = (1 - c0)/z
+        c3 = (1 - c1)/z
+        c4 = (1/2 - c2)/z
+        c5 = (1/6 - c3)/z
+        return c0, c1, c2, c3, c4, c5
+    elseif z < -1e-3
+        c0 = cosh(sqrt(-z))
+        c1 = sinh(sqrt(-z))/sqrt(-z)
+        c2 = (1 - c0)/z
+        c3 = (1 - c1)/z
+        c4 = (1/2 - c2)/z
+        c5 = (1/6 - c3)/z
+        return c0, c1, c2, c3, c4, c5
+    else
+        # z very small. evaluate the series to 6 terms 
+        # error is O(x^7) < 1e-21, well within floating point tolerances
+        # c2 = (1-z*(1-z*(1-z*(1-z*(1-z*(1-z/182)/132)/90)/56)/30)/12)/2
+        # c3 = (1-z*(1-z*(1-z*(1-z*(1-z*(1-z/210)/156)/110)/72)/42)/20)/6
+        c4 = stumpff_continued(4, z)
+        c5 = stumpff_continued(5, z)
+        c2 = 1 - z*c4
+        c3 = 1 - z*c5
+        c0 = 1 - z*c2
+        c1 = 1 - z*c3
+        
+        return c0, c1, c2, c3, c4, c5
+    end
+end
+
+""" evaluate the ith stumpff function as a continued fraction. Uses a fixed number of terms, so should be restricted to the regime near 0 (z < 1e-3 for double precision).
+"""
+function stumpff_continued(i, z)
+    n = 6
+    c = one(z)
+    for k in n:-1:1
+        # c -= z/((i + 2k)*(i + k))
+        c = 1 - c*z/((i + 2k)*(i + k))
+    end
+    return c*factorial(i)
+end
+
 """ 
 [DEPRECATED]
 Compute the position/velcoity along a Keplerian orbit after given timespan. Uses the universal variable formaulation
