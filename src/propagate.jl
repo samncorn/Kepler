@@ -68,12 +68,13 @@ end
 
 function propagate_with_partials(pos, vel, dt, gm; max_iter = 20)
     if dt == 0
-        return pos, vel
+        return pos, vel, I3, I3, I3, I3
     end
 
     if dt < 0
-        posf, velf = propagate(pos, -vel, -dt, gm; max_iter = max_iter)
-        return posf, -velf
+        # posf, velf = propagate(pos, -vel, -dt, gm; max_iter = max_iter)
+        posf, velf, dxdx, dxdv, dvdx, dvdv = propagate_with_partials(pos, -vel, -dt, gm; max_iter = max_iter)
+        return posf, -velf, dxdx, -dxdv, -dvdx, dvdv
     end
 
     # constants
@@ -100,7 +101,7 @@ function propagate_with_partials(pos, vel, dt, gm; max_iter = 20)
             yh  = dth - dt
         elseif isinf(dth) || isnan(dth)
             xh = (xl + xh)/2
-            dth, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
+            dth, rh = universal_kepler2(xh, b, r0, s0, gm)
             yh = dth - dt
             if xl == xh 
                 throw("dt exceeds the computable range of values")
@@ -109,9 +110,9 @@ function propagate_with_partials(pos, vel, dt, gm; max_iter = 20)
     end
   
     x = try
-        find_zero(_x -> universal_kepler(_x, b, r0, s0, gm) - dt, (xl, xh), A42())
+        find_zero(_x -> universal_kepler(_x, b, r0, s0, gm) - dt, (xl, xh), Bisection())
     catch _
-        throw((pos = pos, vel = vel, dt = dt, gm = gm))
+        throw((pos = pos, vel = vel, dt = dt, gm = gm, bracket = (xl, xh)))
     end
 
     # compute f and g functions

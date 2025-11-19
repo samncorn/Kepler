@@ -15,11 +15,11 @@ debug_logger = ConsoleLogger(stderr, Logging.Debug)
 global_logger(debug_logger)
 
 # test from vallado
-T = Float64
-pos = T.([1131.340, -2282.343, 6672.423])
-vel = T.([-5.64305, 4.30333, 2.42879])
-dt  = T(40.0*60.0)
-gm  = T(398600.4415)# per vallado
+# T = Float64
+# pos = T.([1131.340, -2282.343, 6672.423])
+# vel = T.([-5.64305, 4.30333, 2.42879])
+# dt  = T(40.0*60.0)
+# gm  = T(398600.4415)# per vallado
 
 # case that fails in the wild [FIXED]
 # pos = [1.25, 0.0, 0.0]
@@ -141,33 +141,12 @@ gm  = T(398600.4415)# per vallado
 # vel = [0.999466534019431, 30.149863863535487, -878.3833478838895]
 # dt  = 630.2967702062505
 
-# check partials
-dxdx_auto = ForwardDiff.jacobian(x -> Kepler.propagate(x, vel, dt, gm)[1], pos)
-dxdv_auto = ForwardDiff.jacobian(x -> Kepler.propagate(pos, x, dt, gm)[1], vel)
-dvdx_auto = ForwardDiff.jacobian(x -> Kepler.propagate(x, vel, dt, gm)[2], pos)
-dvdv_auto = ForwardDiff.jacobian(x -> Kepler.propagate(pos, x, dt, gm)[2], vel)
+pos = [109.62369242851923, 67.80081611193758, 49.75433855353975]
+vel = [-139.237922907874, -87.24739293809648, -62.59488732836259]
+dt = 5.949454855270001
+gm = 0.0002959122082326087
 
-
-# check against finite difference
-# dx = [1e-3, 1e-3, 1e-3]
-# dv = [1e-6, 1e-6, 1e-6]
-
-# posf, velf = Kepler.propagate(pos, vel, dt, gm)
 posf, velf, dxdx, dxdv, dvdx, dvdv = Kepler.propagate_with_partials(pos, vel, dt, gm)
-
-dxdx .- dxdx_auto
-dxdv .- dxdv_auto
-dvdx .- dvdx_auto
-dvdv .- dvdv_auto
-
-# posf4, velf4 = Kepler.propagate(pos + dx, vel, dt, gm)
-# (posf4 - posf) ./ (dxdx_auto * dx)
-
-# posf3, velf3, dxdx, dxdv, dvdx, dvdv = Kepler.propagate_with_partials(pos, vel, dt, gm)
-# posf3, velf3, dxdx = Kepler.propagate_with_partials(pos, vel, dt, gm)
-# dxdx
-
-# (posf4 - posf) ./ (dxdx * dx)
 
 # check state against spice
 statef = SPICE.prop2b(gm, [pos..., vel...], dt)
@@ -177,13 +156,60 @@ velf2 = statef[4:6]
 posf - posf2
 velf - velf2
 
+# check partials
+dxdx_auto = ForwardDiff.jacobian(x -> Kepler.propagate(x, vel, dt, gm)[1], pos)
+dxdv_auto = ForwardDiff.jacobian(x -> Kepler.propagate(pos, x, dt, gm)[1], vel)
+dvdx_auto = ForwardDiff.jacobian(x -> Kepler.propagate(x, vel, dt, gm)[2], pos)
+dvdv_auto = ForwardDiff.jacobian(x -> Kepler.propagate(pos, x, dt, gm)[2], vel)
+
+dxdx .- dxdx_auto
+dxdv .- dxdv_auto
+dvdx .- dvdx_auto
+dvdv .- dvdv_auto
+
+# check orbital elements
 q, e, i, Om, w, tp = Kepler.cometary(pos, vel, dt, gm)
 
-# test and compare to spice
-posf, velf, phi11, phi12, phi21, phi22 = Kepler.propagate_with_partials(pos, vel, dt, gm)
-statef = SPICE.prop2b(gm, [pos..., vel...], dt)
-posf2 = statef[1:3]
-velf2 = statef[4:6]
+# unwind the function to find problem
+r0 = norm(pos)
+s0 = dot(pos, vel)
+b  = 2gm/r0 - dot(vel, vel)
 
-posf - posf2
-velf - velf2
+# try to bracket the root
+# dt/dx = r >= 0, and monotonic, so we can step until we find a bracket
+# bracket = (0.0, dt/r)
+xl = 0.0
+yl = -dt
+
+xh = dt/r0
+dth, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
+yh = dth - dt
+
+while sign(yl) == sign(yh) || isinf(dth) || isnan(dth)
+    if sign(yl) == sign(yh)
+        xl  = xh
+        xh += (dt - dth)/rh
+        yl  = yh
+        dth, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
+        yh  = dth - dt
+    elseif isinf(dth) || isnan(dth)
+        xh = (xl + xh)/2
+        dth, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
+        yh = dth - dt
+        if xl == xh 
+            throw("dt exceeds the computable range of values")
+        end
+    end
+end
+
+(xl, xh)
+Kepler.universal_kepler(xl, b, r0, s0, gm) - dt
+Kepler.universal_kepler(xh, b, r0, s0, gm) - dt
+
+x = try
+    # method = A42()
+    method = Bisection()
+    find_zero(_x -> Kepler.universal_kepler(_x, b, r0, s0, gm) - dt, (xl, xh), method)
+catch _
+    throw((pos = pos, vel = vel, dt = dt, gm = gm, bracket = (xl, xh)))
+end
