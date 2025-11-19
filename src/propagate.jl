@@ -33,19 +33,19 @@ function propagate(pos, vel, dt, gm; max_iter = 20)
     i = 0
     while i < 1000 && (sign(yl) == sign(yh) || isinf(dth) || isnan(dth))
         i += 1
-        if sign(yl) == sign(yh) && !isnan(rh)
-            xl  = xh
-            xh += (dt - dth)/rh
-            yl  = yh
-            dth, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
-            yh  = dth - dt
-        elseif isinf(dth) || isnan(dth)
+        if isinf(dth) || isnan(dth) #|| isnan(rh)
             xh = (xl + xh)/2
-            dth, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
+            dth, rh = universal_kepler2(xh, b, r0, s0, gm)
             yh = dth - dt
             if xl == xh 
                 throw("dt exceeds the computable range of values")
             end
+        elseif sign(yl) == sign(yh) && !isnan(rh)
+            xl  = xh
+            xh += (dt - dth)/rh
+            yl  = yh
+            dth, rh = universal_kepler2(xh, b, r0, s0, gm)
+            yh  = dth - dt
         end
     end
 
@@ -97,19 +97,19 @@ function propagate_with_partials(pos, vel, dt, gm; max_iter = 20)
     i = 0
     while i < 1000 && (sign(yl) == sign(yh) || isinf(dth) || isnan(dth))
         i += 1
-        if sign(yl) == sign(yh) && !isnan(rh)
-            xl  = xh
-            xh += (dt - dth)/rh
-            yl  = yh
-            dth, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
-            yh  = dth - dt
-        elseif isinf(dth) || isnan(dth)
+        if isinf(dth) || isnan(dth) #|| isnan(rh)
             xh = (xl + xh)/2
-            dth, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
+            dth, rh = universal_kepler2(xh, b, r0, s0, gm)
             yh = dth - dt
             if xl == xh 
                 throw("dt exceeds the computable range of values")
             end
+        elseif sign(yl) == sign(yh) && !isnan(rh)
+            xl  = xh
+            xh += (dt - dth)/rh
+            yl  = yh
+            dth, rh = universal_kepler2(xh, b, r0, s0, gm)
+            yh  = dth - dt
         end
     end
   

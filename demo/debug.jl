@@ -146,11 +146,16 @@ global_logger(debug_logger)
 # dt = 5.949454855270001
 # gm = 0.0002959122082326087
 
-pos = [40401.932642594336, -47224.957914188126, -33526.83950111518]
-vel = [42486.22331901802, -4893.683561918934, 22635.55566101651]
-dt  = 6.121242998633534
-# dt = -526779.8806769907
-gm  = 0.0002959122082326087
+# pos = [40401.932642594336, -47224.957914188126, -33526.83950111518]
+# vel = [42486.22331901802, -4893.683561918934, 22635.55566101651]
+# dt  = 6.121242998633534
+# # dt = -526779.8806769907
+# gm  = 0.0002959122082326087
+
+pos = [41030.87830706519, -2349.8572376691723, 55434.04184220392]
+vel = [-7.565476082816816e6, 541902.5735269253, 2.8492970861261785e6]
+dt = 5.95204599853605
+gm = 0.0002959122082326087
 
 posf, velf, dxdx, dxdv, dvdx, dvdv = Kepler.propagate_with_partials(pos, vel, dt, gm)
 
@@ -168,7 +173,7 @@ dxdv_auto = ForwardDiff.jacobian(x -> Kepler.propagate(pos, x, dt, gm)[1], vel)
 dvdx_auto = ForwardDiff.jacobian(x -> Kepler.propagate(x, vel, dt, gm)[2], pos)
 dvdv_auto = ForwardDiff.jacobian(x -> Kepler.propagate(pos, x, dt, gm)[2], vel)
 
-(dxdx .- dxdx_auto) ./ dxdx_auto
+dxdx .- dxdx_auto
 dxdv .- dxdv_auto
 dvdx .- dvdx_auto
 dvdv .- dvdv_auto
@@ -202,20 +207,13 @@ dth, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
 
 xl, xh
 
-b*x^2
+b*xh^2
 
 i = 0
-while i < 20 && (sign(yl) == sign(yh) || isinf(dth) || isnan(dth))
+while i < 100 && (sign(yl) == sign(yh) || isinf(dth) || isnan(dth))
     i += 1
     println(i)
-    if sign(yl) == sign(yh) && !isnan(rh)
-        println("shifting bracket")
-        xl  = xh
-        xh += (dt - dth)/rh
-        yl  = yh
-        dth, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
-        yh  = dth - dt
-    elseif isinf(dth) || isnan(dth) #|| isnan(rh)
+    if isinf(dth) || isnan(dth) #|| isnan(rh)
         println("bisecting")
         xh = (xl + xh)/2
         dth, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
@@ -223,6 +221,13 @@ while i < 20 && (sign(yl) == sign(yh) || isinf(dth) || isnan(dth))
         if xl == xh 
             throw("dt exceeds the computable range of values")
         end
+    elseif sign(yl) == sign(yh) && !isnan(rh)
+        println("shifting bracket")
+        xl  = xh
+        xh += (dt - dth)/rh
+        yl  = yh
+        dth, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
+        yh  = dth - dt
     end
 end
 
