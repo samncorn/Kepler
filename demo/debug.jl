@@ -141,10 +141,16 @@ global_logger(debug_logger)
 # vel = [0.999466534019431, 30.149863863535487, -878.3833478838895]
 # dt  = 630.2967702062505
 
-pos = [109.62369242851923, 67.80081611193758, 49.75433855353975]
-vel = [-139.237922907874, -87.24739293809648, -62.59488732836259]
-dt = 5.949454855270001
-gm = 0.0002959122082326087
+# pos = [109.62369242851923, 67.80081611193758, 49.75433855353975]
+# vel = [-139.237922907874, -87.24739293809648, -62.59488732836259]
+# dt = 5.949454855270001
+# gm = 0.0002959122082326087
+
+pos = [40401.932642594336, -47224.957914188126, -33526.83950111518]
+vel = [42486.22331901802, -4893.683561918934, 22635.55566101651]
+dt  = 6.121242998633534
+# dt = -526779.8806769907
+gm  = 0.0002959122082326087
 
 posf, velf, dxdx, dxdv, dvdx, dvdv = Kepler.propagate_with_partials(pos, vel, dt, gm)
 
@@ -162,13 +168,18 @@ dxdv_auto = ForwardDiff.jacobian(x -> Kepler.propagate(pos, x, dt, gm)[1], vel)
 dvdx_auto = ForwardDiff.jacobian(x -> Kepler.propagate(x, vel, dt, gm)[2], pos)
 dvdv_auto = ForwardDiff.jacobian(x -> Kepler.propagate(pos, x, dt, gm)[2], vel)
 
-dxdx .- dxdx_auto
+(dxdx .- dxdx_auto) ./ dxdx_auto
 dxdv .- dxdv_auto
 dvdx .- dvdx_auto
 dvdv .- dvdv_auto
 
 # check orbital elements
 q, e, i, Om, w, tp = Kepler.cometary(pos, vel, dt, gm)
+
+if dt < 0
+    dt  = -dt
+    vel = -vel
+end
 
 # unwind the function to find problem
 r0 = norm(pos)
@@ -185,14 +196,27 @@ xh = dt/r0
 dth, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
 yh = dth - dt
 
-while sign(yl) == sign(yh) || isinf(dth) || isnan(dth)
-    if sign(yl) == sign(yh)
+xh = (xl + xh)/2
+Kepler.stumpff(b*xh^2)
+dth, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
+
+xl, xh
+
+b*x^2
+
+i = 0
+while i < 20 && (sign(yl) == sign(yh) || isinf(dth) || isnan(dth))
+    i += 1
+    println(i)
+    if sign(yl) == sign(yh) && !isnan(rh)
+        println("shifting bracket")
         xl  = xh
         xh += (dt - dth)/rh
         yl  = yh
         dth, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
         yh  = dth - dt
-    elseif isinf(dth) || isnan(dth)
+    elseif isinf(dth) || isnan(dth) #|| isnan(rh)
+        println("bisecting")
         xh = (xl + xh)/2
         dth, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
         yh = dth - dt

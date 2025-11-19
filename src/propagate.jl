@@ -30,12 +30,14 @@ function propagate(pos, vel, dt, gm; max_iter = 20)
     dth, rh = universal_kepler2(xh, b, r0, s0, gm)
     yh = dth - dt
 
-    while sign(yl) == sign(yh) || isinf(dth) || isnan(dth)
-        if sign(yl) == sign(yh)
+    i = 0
+    while i < 1000 && (sign(yl) == sign(yh) || isinf(dth) || isnan(dth))
+        i += 1
+        if sign(yl) == sign(yh) && !isnan(rh)
             xl  = xh
             xh += (dt - dth)/rh
             yl  = yh
-            dth, rh = universal_kepler2(xh, b, r0, s0, gm)
+            dth, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
             yh  = dth - dt
         elseif isinf(dth) || isnan(dth)
             xh = (xl + xh)/2
@@ -92,16 +94,18 @@ function propagate_with_partials(pos, vel, dt, gm; max_iter = 20)
     dth, rh = universal_kepler2(xh, b, r0, s0, gm)
     yh = dth - dt
 
-    while sign(yl) == sign(yh) || isinf(dth) || isnan(dth)
-        if sign(yl) == sign(yh)
+    i = 0
+    while i < 1000 && (sign(yl) == sign(yh) || isinf(dth) || isnan(dth))
+        i += 1
+        if sign(yl) == sign(yh) && !isnan(rh)
             xl  = xh
             xh += (dt - dth)/rh
             yl  = yh
-            dth, rh = universal_kepler2(xh, b, r0, s0, gm)
+            dth, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
             yh  = dth - dt
         elseif isinf(dth) || isnan(dth)
             xh = (xl + xh)/2
-            dth, rh = universal_kepler2(xh, b, r0, s0, gm)
+            dth, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
             yh = dth - dt
             if xl == xh 
                 throw("dt exceeds the computable range of values")
