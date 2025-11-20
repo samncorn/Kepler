@@ -26,7 +26,24 @@ function propagate(pos, vel, dt, gm; max_iter = 20)
     xl = 0.0
     yl = -dt
 
-    xh = dt/r0
+    # better initial guesses
+    # xh = dt/r0
+    xh = if abs(b) < 1e-6
+        # parabolic (Vallado)
+        h = cross(pos, vel)
+        p = dot(h, h)/gm
+        s = acot(3*sqrt(gm/p^3)*dt)/2
+        w = atan(cbrt(tan(s)))
+        sqrt(p)*2*cot(2w)/sqrt(gm)
+    elseif b < 0
+        # hyperbolic (Vallado)
+        a = gm/b
+        sqrt(-a)*log(-2gm*dt/(a*(s0+sqrt(-gm*a)*(1 - r0/a))))/sqrt(gm)
+    elseif b > 0
+        # elliptic
+        dt/r0
+    end
+
     dth, rh = universal_kepler2(xh, b, r0, s0, gm)
     yh = dth - dt
 
@@ -90,7 +107,24 @@ function propagate_with_partials(pos, vel, dt, gm; max_iter = 20)
     xl = 0.0
     yl = -dt
 
-    xh = dt/r0
+    # better initial guesses
+    # xh = dt/r0
+    xh = if abs(b) < 1e-6
+        # parabolic (Vallado)
+        h = cross(pos, vel)
+        p = dot(h, h)/gm
+        s = acot(3*sqrt(gm/p^3)*dt)/2
+        w = atan(cbrt(tan(s)))
+        sqrt(p)*2*cot(2w)/sqrt(gm)
+    elseif b < 0
+        # hyperbolic (Vallado)
+        a = gm/b
+        sqrt(-a)*log(-2gm*dt/(a*(s0+sqrt(-gm*a)*(1 - r0/a))))/sqrt(gm)
+    elseif b > 0
+        # elliptic
+        dt/r0
+    end
+
     dth, rh = universal_kepler2(xh, b, r0, s0, gm)
     yh = dth - dt
 
@@ -217,8 +251,8 @@ function stumpff5(z)
         # c3 = (1-z*(1-z*(1-z*(1-z*(1-z*(1-z/210)/156)/110)/72)/42)/20)/6
         c4 = stumpff_continued(4, z)
         c5 = stumpff_continued(5, z)
-        c2 = 1 - z*c4
-        c3 = 1 - z*c5
+        c2 = 1/2 - z*c4
+        c3 = 1/6 - z*c5
         c0 = 1 - z*c2
         c1 = 1 - z*c3
         

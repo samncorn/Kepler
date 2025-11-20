@@ -28,10 +28,10 @@ global_logger(debug_logger)
 # gm  = 0.0002959122082326087
 
 # parabolic orbit that failed with elliptic upper bound [FIXED]
-# pos = [1.25, 0.0, 0.0]
-# vel = [-0.010879562642544206, -0.018843955261014882, -0.0]
-# dt  = 8.0
-# gm  = 0.0002959122082326087
+pos = [1.25, 0.0, 0.0]
+vel = [-0.010879562642544206, -0.018843955261014882, -0.0]
+dt  = 8.0
+gm  = 0.0002959122082326087
 
 # # near rectilinear, consider as invalid input
 # pos = [2.5, 0.0, 0.0]
@@ -152,12 +152,13 @@ global_logger(debug_logger)
 # # dt = -526779.8806769907
 # gm  = 0.0002959122082326087
 
-pos = [41030.87830706519, -2349.8572376691723, 55434.04184220392]
-vel = [-7.565476082816816e6, 541902.5735269253, 2.8492970861261785e6]
-dt = 5.95204599853605
-gm = 0.0002959122082326087
+# pos = [41030.87830706519, -2349.8572376691723, 55434.04184220392]
+# vel = [-7.565476082816816e6, 541902.5735269253, 2.8492970861261785e6]
+# dt = 5.95204599853605
+# gm = 0.0002959122082326087
 
 posf, velf, dxdx, dxdv, dvdx, dvdv = Kepler.propagate_with_partials(pos, vel, dt, gm)
+# posf, velf = Kepler.propagate(pos, vel, dt, gm)
 
 # check state against spice
 statef = SPICE.prop2b(gm, [pos..., vel...], dt)
