@@ -59,7 +59,8 @@ function propagate(pos, vel, dt, gm; max_iter = 20)
             end
         elseif sign(yl) == sign(yh) && !isnan(rh)
             xl  = xh
-            xh += (dt - dth)/rh
+            # xh += (dt - dth)/rh
+            xh *= 2
             yl  = yh
             dth, rh = universal_kepler2(xh, b, r0, s0, gm)
             yh  = dth - dt
@@ -140,7 +141,8 @@ function propagate_with_partials(pos, vel, dt, gm; max_iter = 20)
             end
         elseif sign(yl) == sign(yh) && !isnan(rh)
             xl  = xh
-            xh += (dt - dth)/rh
+            # xh += (dt - dth)/rh
+            xh *= 2
             yl  = yh
             dth, rh = universal_kepler2(xh, b, r0, s0, gm)
             yh  = dth - dt
@@ -154,8 +156,9 @@ function propagate_with_partials(pos, vel, dt, gm; max_iter = 20)
     end
 
     # compute f and g functions
-    _, c1, c2, c3, c4, c5 = stumpff5(b*x^2)
 
+    _, c1, c2, c3, c4, c5 = stumpff5(b*x^2)
+    _, c1, c2, c3 = stumpff(b*x^2)
     f    = 1 - (gm/r0)*(x^2)*c2
     g    = dt - gm*(x^3)*c3
     posf = f*pos + g*vel
@@ -169,8 +172,27 @@ function propagate_with_partials(pos, vel, dt, gm; max_iter = 20)
     delr = posf - pos
     delv = velf - vel
 
+    # try the Der 1998 formulation
+    v0 = norm(vel)
+    M1 = pos*transpose(pos)/r0^2
+    M2 = pos*transpose(vel)/(r0*v0)
+    M3 = vel*transpose(pos)/(r0*v0)
+    M4 = vel*transpose(vel)/v0^2
+
+    # k11 = 
+    # k12 = 
+    # k13 = 
+    # k14 =
+
+    k21  = r0*gm*(x^3)*c1*c2/rf
+    k22  = b == 0 ? 0.0 : v0*gm*(x^4)/(b*rf)*(3*gm*c1*c3 + (b*r0-2gm)*c2^2)
+    k23  = r0*v0*gm*(x^4)*c2^2/rf
+    k24  = b == 0 ? 0.0 : (v0^2)*gm/(b*rf)*(r0*(x^3)*c1*c2 + 2s0*(x^4)*c2^2 + 3*(gm*(x^5)*c2*c3 - rf*(x^3)*c3))
+    dxdv = g*I3 + k21*M1 + k22*M2 + k23*M3 + k24*M4
+
     dxdx = (rf/gm)*delv*transpose(delv) + (1/r0^3)*(r0*(1-f)*posf*transpose(pos) + C*velf*transpose(pos)) + f*I3
-    dxdv = (r0/gm)*(1-f)*(delr*transpose(vel) - delv*transpose(pos)) + (C/gm)*velf*transpose(vel) + g*I3
+    # dxdv = (r0/gm)*(1-f)*(delr*transpose(vel) - delv*transpose(pos)) + (C/gm)*velf*transpose(vel) + g*I3
+
     dvdx = (
         - (1/r0^2)*delv*transpose(pos) 
         - (1/rf^2)*posf*transpose(delv) 

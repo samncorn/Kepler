@@ -28,10 +28,10 @@ global_logger(debug_logger)
 # gm  = 0.0002959122082326087
 
 # parabolic orbit that failed with elliptic upper bound [FIXED]
-pos = [1.25, 0.0, 0.0]
-vel = [-0.010879562642544206, -0.018843955261014882, -0.0]
-dt  = 8.0
-gm  = 0.0002959122082326087
+# pos = [1.25, 0.0, 0.0]
+# vel = [-0.010879562642544206, -0.018843955261014882, -0.0]
+# dt  = 8.0
+# gm  = 0.0002959122082326087
 
 # # near rectilinear, consider as invalid input
 # pos = [2.5, 0.0, 0.0]
@@ -157,6 +157,11 @@ gm  = 0.0002959122082326087
 # dt = 5.95204599853605
 # gm = 0.0002959122082326087
 
+pos = [261.25387200460534, -211.11168024875982, 71.14807690957349]
+vel = [-11138.034281711645, -21791.64218327744, -9196.569919801788]
+dt = 71417.14474731834
+gm = 0.0002959122082326087
+
 posf, velf, dxdx, dxdv, dvdx, dvdv = Kepler.propagate_with_partials(pos, vel, dt, gm)
 # posf, velf = Kepler.propagate(pos, vel, dt, gm)
 
@@ -198,13 +203,28 @@ b  = 2gm/r0 - dot(vel, vel)
 xl = 0.0
 yl = -dt
 
-xh = dt/r0
+xh = if abs(b) < 1e-6
+    # parabolic (Vallado)
+    h = cross(pos, vel)
+    p = dot(h, h)/gm
+    s = acot(3*sqrt(gm/p^3)*dt)/2
+    w = atan(cbrt(tan(s)))
+    sqrt(p)*2*cot(2w)/sqrt(gm)
+elseif b < 0
+    # hyperbolic (Vallado)
+    a = gm/b
+    sqrt(-a)*log(-2gm*dt/(a*(s0+sqrt(-gm*a)*(1 - r0/a))))/sqrt(gm)
+elseif b > 0
+    # elliptic
+    dt/r0
+end
+
 dth, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
 yh = dth - dt
 
-xh = (xl + xh)/2
-Kepler.stumpff(b*xh^2)
-dth, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
+# xh = (xl + xh)/2
+# Kepler.stumpff(b*xh^2)
+# dth, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
 
 xl, xh
 
@@ -225,7 +245,8 @@ while i < 100 && (sign(yl) == sign(yh) || isinf(dth) || isnan(dth))
     elseif sign(yl) == sign(yh) && !isnan(rh)
         println("shifting bracket")
         xl  = xh
-        xh += (dt - dth)/rh
+        # xh += (dt - dth)/rh
+        xh *= 2
         yl  = yh
         dth, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
         yh  = dth - dt
@@ -233,7 +254,8 @@ while i < 100 && (sign(yl) == sign(yh) || isinf(dth) || isnan(dth))
 end
 
 (xl, xh)
-Kepler.universal_kepler(xl, b, r0, s0, gm) - dt
+xh - xl
+Kepler.universal_kepler(xl + 1e-9, b, r0, s0, gm) - dt
 Kepler.universal_kepler(xh, b, r0, s0, gm) - dt
 
 x = try
