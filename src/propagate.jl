@@ -4,7 +4,7 @@ function solve(pos0, vel0, dt, gm; max_iter = 20)
     return Kepler.propagate(pos0, vel0, dt, gm; max_iter = max_iter)
 end
 
-"Universal kepler solver. normalizes to canonical units"
+"Universal kepler solver."
 function propagate(pos, vel, dt, gm; max_iter = 20)
     if dt == 0
         return pos, vel
@@ -28,18 +28,18 @@ function propagate(pos, vel, dt, gm; max_iter = 20)
 
     # better initial guesses
     # xh = dt/r0
-    xh = if abs(b) < 1e-6
+    xh = if abs(gm*b) < 1e-6
         # parabolic (Vallado)
         h = cross(pos, vel)
         p = dot(h, h)/gm
         s = acot(3*sqrt(gm/p^3)*dt)/2
         w = atan(cbrt(tan(s)))
         sqrt(p)*2*cot(2w)/sqrt(gm)
-    elseif b < 0
+    elseif gm*b < 0
         # hyperbolic (Vallado)
         a = gm/b
-        sqrt(-a)*log(-2gm*dt/(a*(s0+sqrt(-gm*a)*(1 - r0/a))))/sqrt(gm)
-    elseif b > 0
+        abs(sqrt(-a)*log(-2gm*dt/(a*(s0+sqrt(-gm*a)*(1 - r0/a))))/sqrt(gm))
+    elseif gm*b > 0
         # elliptic
         dt/r0
     end
@@ -68,7 +68,8 @@ function propagate(pos, vel, dt, gm; max_iter = 20)
     end
 
     x = try
-        find_zero(_x -> universal_kepler(_x, b, r0, s0, gm) - dt, (xl, xh), Bisection())
+        method = A42()
+        find_zero(_x -> universal_kepler(_x, b, r0, s0, gm) - dt, (xl, xh), method)
     catch _
         throw((pos = pos, vel = vel, dt = dt, gm = gm))
     end
@@ -110,18 +111,18 @@ function propagate_with_partials(pos, vel, dt, gm; max_iter = 20)
 
     # better initial guesses
     # xh = dt/r0
-    xh = if abs(b) < 1e-6
+    xh = if abs(gm*b) < 1e-6
         # parabolic (Vallado)
         h = cross(pos, vel)
         p = dot(h, h)/gm
         s = acot(3*sqrt(gm/p^3)*dt)/2
         w = atan(cbrt(tan(s)))
         sqrt(p)*2*cot(2w)/sqrt(gm)
-    elseif b < 0
+    elseif gm*b < 0
         # hyperbolic (Vallado)
         a = gm/b
-        sqrt(-a)*log(-2gm*dt/(a*(s0+sqrt(-gm*a)*(1 - r0/a))))/sqrt(gm)
-    elseif b > 0
+        abs(sqrt(-a)*log(-2gm*dt/(a*(s0+sqrt(-gm*a)*(1 - r0/a))))/sqrt(gm))
+    elseif gm*b > 0
         # elliptic
         dt/r0
     end
@@ -148,17 +149,16 @@ function propagate_with_partials(pos, vel, dt, gm; max_iter = 20)
             yh  = dth - dt
         end
     end
-  
+
     x = try
-        find_zero(_x -> universal_kepler(_x, b, r0, s0, gm) - dt, (xl, xh), Bisection())
+        method = A42()
+        find_zero(_x -> universal_kepler(_x, b, r0, s0, gm) - dt, (xl, xh), method)
     catch _
-        throw((pos = pos, vel = vel, dt = dt, gm = gm, bracket = (xl, xh)))
+        throw((pos = pos, vel = vel, dt = dt, gm = gm))
     end
 
     # compute f and g functions
-
     _, c1, c2, c3, c4, c5 = stumpff5(b*x^2)
-    _, c1, c2, c3 = stumpff(b*x^2)
     f    = 1 - (gm/r0)*(x^2)*c2
     g    = dt - gm*(x^3)*c3
     posf = f*pos + g*vel
@@ -174,25 +174,29 @@ function propagate_with_partials(pos, vel, dt, gm; max_iter = 20)
 
     # try the Der 1998 formulation
     v0 = norm(vel)
+    a  = b/gm
+    U1 = sqrt(gm)*x*c1
+    U2 = gm*(x^2)*c2
+    U3 = sqrt(gm)*(x^3)*gm*c3
     M1 = pos*transpose(pos)/r0^2
     M2 = pos*transpose(vel)/(r0*v0)
     M3 = vel*transpose(pos)/(r0*v0)
     M4 = vel*transpose(vel)/v0^2
 
-    # k11 = 
-    # k12 = 
-    # k13 = 
-    # k14 =
+    k11  = abs(a) < 1e-6 ? 0.0 : (1/(a*rf*r0^2))*(3U1*U3 + (a*r0 - 2)*U2^2) + (U1^2)/rf + U2/r0
+    k12  = v0*U1*U2/(rf*sqrt(gm))
+    k13  = abs(a) < 1e-6 ? 0.0 : v0/(a*rf*sqrt(gm)*r0^2)*(r0*U1*U2 + 2*s0/sqrt(gm)*U2^2 + 3*U2*U3 - 3rf*U3 + a*(r0^2)*U1*U2)
+    k14  = (v0^2)*(U2^2)/(rf*gm)
+    dxdx = f*I3 + k11*M1 + k12*M2 + k13*M3 + k14*M4
 
-    k21  = r0*gm*(x^3)*c1*c2/rf
-    k22  = b == 0 ? 0.0 : v0*gm*(x^4)/(b*rf)*(3*gm*c1*c3 + (b*r0-2gm)*c2^2)
-    k23  = r0*v0*gm*(x^4)*c2^2/rf
-    k24  = b == 0 ? 0.0 : (v0^2)*gm/(b*rf)*(r0*(x^3)*c1*c2 + 2s0*(x^4)*c2^2 + 3*(gm*(x^5)*c2*c3 - rf*(x^3)*c3))
+    k21  = r0*U1*U2/(rf*sqrt(gm))
+    k22  = abs(a) < 1e-6 ? 0.0 : (v0/(a*rf*gm))*(3U1*U3 + (a*r0 - 2)*U2^2)
+    k23  = r0*v0*(U2^2)/(rf*gm)
+    k24  = abs(a) < 1e-6 ? 0.0 : ((v0^2)/(a*rf*gm*sqrt(gm)))*(r0*U1*U2 + 2s0/sqrt(gm)*U2^2 + 3U2*U3 - 3rf*U3)
     dxdv = g*I3 + k21*M1 + k22*M2 + k23*M3 + k24*M4
 
-    dxdx = (rf/gm)*delv*transpose(delv) + (1/r0^3)*(r0*(1-f)*posf*transpose(pos) + C*velf*transpose(pos)) + f*I3
-    # dxdv = (r0/gm)*(1-f)*(delr*transpose(vel) - delv*transpose(pos)) + (C/gm)*velf*transpose(vel) + g*I3
-
+    # dxdx = f*I3 + (rf/gm)*delv*transpose(delv) + (1/r0^3)*(r0*(1-f)*posf*transpose(pos) + C*velf*transpose(pos))
+    # dxdv = g*I3 + (r0/gm)*(1-f)*(delr*transpose(vel) - delv*transpose(pos)) + (C/gm)*velf*transpose(vel)
     dvdx = (
         - (1/r0^2)*delv*transpose(pos) 
         - (1/rf^2)*posf*transpose(delv) 

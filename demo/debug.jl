@@ -15,11 +15,11 @@ debug_logger = ConsoleLogger(stderr, Logging.Debug)
 global_logger(debug_logger)
 
 # test from vallado
-# T = Float64
-# pos = T.([1131.340, -2282.343, 6672.423])
-# vel = T.([-5.64305, 4.30333, 2.42879])
-# dt  = T(40.0*60.0)
-# gm  = T(398600.4415)# per vallado
+T = Float64
+pos = T.([1131.340, -2282.343, 6672.423])
+vel = T.([-5.64305, 4.30333, 2.42879])
+dt  = T(40.0*60.0)
+gm  = T(398600.4415) # per vallado
 
 # case that fails in the wild [FIXED]
 # pos = [1.25, 0.0, 0.0]
@@ -157,10 +157,20 @@ global_logger(debug_logger)
 # dt = 5.95204599853605
 # gm = 0.0002959122082326087
 
-pos = [261.25387200460534, -211.11168024875982, 71.14807690957349]
-vel = [-11138.034281711645, -21791.64218327744, -9196.569919801788]
-dt = 71417.14474731834
-gm = 0.0002959122082326087
+# pos = [261.25387200460534, -211.11168024875982, 71.14807690957349]
+# vel = [-11138.034281711645, -21791.64218327744, -9196.569919801788]
+# dt = 71417.14474731834
+# gm = 0.0002959122082326087
+
+# pos = [-1.0869055514657402, -1.5771341941111423, -0.5908430891461786]
+# vel = [0.024192638271511267, 0.014795405462042815, 0.004641678916793392]
+# dt  = 1.178212999831885
+# gm  = 0.0002959122082326087
+
+# pos = [3.48963168414826, 6.823118245748422, 3.533810926367658]
+# vel = [-0.007296823907528163, -0.12053259794490012, -0.051404238147262506]
+# dt = 1.1817809999920428
+# gm = 0.0002959122082326087
 
 posf, velf, dxdx, dxdv, dvdx, dvdv = Kepler.propagate_with_partials(pos, vel, dt, gm)
 # posf, velf = Kepler.propagate(pos, vel, dt, gm)
@@ -175,13 +185,15 @@ velf - velf2
 
 # check partials
 dxdx_auto = ForwardDiff.jacobian(x -> Kepler.propagate(x, vel, dt, gm)[1], pos)
-dxdv_auto = ForwardDiff.jacobian(x -> Kepler.propagate(pos, x, dt, gm)[1], vel)
-dvdx_auto = ForwardDiff.jacobian(x -> Kepler.propagate(x, vel, dt, gm)[2], pos)
-dvdv_auto = ForwardDiff.jacobian(x -> Kepler.propagate(pos, x, dt, gm)[2], vel)
-
 dxdx .- dxdx_auto
+
+dxdv_auto = ForwardDiff.jacobian(x -> Kepler.propagate(pos, x, dt, gm)[1], vel)
 dxdv .- dxdv_auto
+
+dvdx_auto = ForwardDiff.jacobian(x -> Kepler.propagate(x, vel, dt, gm)[2], pos)
 dvdx .- dvdx_auto
+
+dvdv_auto = ForwardDiff.jacobian(x -> Kepler.propagate(pos, x, dt, gm)[2], vel)
 dvdv .- dvdv_auto
 
 # check orbital elements
@@ -203,18 +215,18 @@ b  = 2gm/r0 - dot(vel, vel)
 xl = 0.0
 yl = -dt
 
-xh = if abs(b) < 1e-6
+xh = if abs(gm*b) < 1e-5
     # parabolic (Vallado)
     h = cross(pos, vel)
     p = dot(h, h)/gm
     s = acot(3*sqrt(gm/p^3)*dt)/2
     w = atan(cbrt(tan(s)))
     sqrt(p)*2*cot(2w)/sqrt(gm)
-elseif b < 0
+elseif gm*b < 0
     # hyperbolic (Vallado)
     a = gm/b
     sqrt(-a)*log(-2gm*dt/(a*(s0+sqrt(-gm*a)*(1 - r0/a))))/sqrt(gm)
-elseif b > 0
+elseif gm*b > 0
     # elliptic
     dt/r0
 end
@@ -223,10 +235,11 @@ dth, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
 yh = dth - dt
 
 # xh = (xl + xh)/2
-# Kepler.stumpff(b*xh^2)
+# Kepler.Kepler.stumpff(b*xh^2)
 # dth, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
 
 xl, xh
+yl, yh
 
 b*xh^2
 
@@ -255,13 +268,33 @@ end
 
 (xl, xh)
 xh - xl
-Kepler.universal_kepler(xl + 1e-9, b, r0, s0, gm) - dt
+Kepler.universal_kepler(xl, b, r0, s0, gm) - dt
 Kepler.universal_kepler(xh, b, r0, s0, gm) - dt
 
 x = try
-    # method = A42()
-    method = Bisection()
+    method = A42()
+    # method = Bisection()
     find_zero(_x -> Kepler.universal_kepler(_x, b, r0, s0, gm) - dt, (xl, xh), method)
 catch _
     throw((pos = pos, vel = vel, dt = dt, gm = gm, bracket = (xl, xh)))
 end
+
+z = b*x^2
+_, c1, c2, c3, c4, c5 = Kepler.stumpff5(b*x^2)
+f    = 1 - (gm/r0)*(x^2)*c2
+g    = dt - gm*(x^3)*c3
+posf = f*pos + g*vel
+rf   = norm(posf)
+df   = -(gm/(rf*r0))*x*c1
+dg   = 1 - (gm/rf)*(x^2)*c2
+velf = df*pos + dg*vel
+
+# compute the partials (Battin)
+C = gm*(x^2)*(gm*(x^3)*(3c5 - c4) - dt*c2)
+C = -3(x^3)*c3 + gm*(x^3) - gm*dt*(x^2)*c2
+delr = posf - pos
+delv = velf - vel
+
+dxdx = f*Kepler.I3 + (rf/gm)*delv*transpose(delv) + (1/r0^3)*(r0*(1-f)*posf*transpose(pos) + C*velf*transpose(pos))
+dxdx .- dxdx_auto
+# -dxdx .- dxdx_auto
