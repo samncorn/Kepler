@@ -9,10 +9,13 @@ using Logging
 using Roots
 using BenchmarkTools
 using ForwardDiff
+
+import Test: @inferred
+using Profile
 # %%
 
-debug_logger = ConsoleLogger(stderr, Logging.Debug)
-global_logger(debug_logger)
+# debug_logger = ConsoleLogger(stderr, Logging.Debug)
+# global_logger(debug_logger)
 
 # test from vallado
 T = Float64
@@ -172,6 +175,23 @@ gm  = T(398600.4415) # per vallado
 # dt = 1.1817809999920428
 # gm = 0.0002959122082326087
 
+# benchmark
+function test()
+    _pos = SVector{3}(1131.340, -2282.343, 6672.423)
+    _vel = SVector{3}(-5.64305, 4.30333, 2.42879)
+    _dt  = 40.0*60.0
+    _gm  = 398600.4415
+
+    pos, vel = Kepler.propagate(_pos, _vel, _dt, _gm)
+    # return pos, vel
+end
+
+@code_warntype test()
+@btime test()
+@allocated test()
+# @profile test()
+# Profile.print()
+
 posf, velf, dxdx, dxdv, dvdx, dvdv = Kepler.propagate_with_partials(pos, vel, dt, gm)
 # posf, velf = Kepler.propagate(pos, vel, dt, gm)
 
@@ -269,15 +289,17 @@ end
 (xl, xh)
 xh - xl
 Kepler.universal_kepler(xl, b, r0, s0, gm) - dt
-Kepler.universal_kepler(xh, b, r0, s0, gm) - dt
+@benchmark Kepler.universal_kepler($xh, $b, $r0, $s0, $gm) - $dt
 
-x = try
-    method = A42()
+@benchmark x = find_zero(_x -> Kepler.universal_kepler(_x, $b, $r0, $s0, $gm) - $dt, ($xl, $xh), A42())
+@benchmark x = (try
+    method = $A42()
     # method = Bisection()
-    find_zero(_x -> Kepler.universal_kepler(_x, b, r0, s0, gm) - dt, (xl, xh), method)
+    find_zero(_x -> Kepler.universal_kepler(_x, $b, $r0, $s0, $gm) - $dt, ($xl, $xh), method)
 catch _
-    throw((pos = pos, vel = vel, dt = dt, gm = gm, bracket = (xl, xh)))
-end
+    # throw((pos = $pos, $vel = vel, dt = dt, gm = gm, bracket = (xl, xh)))
+    throw("HELL")
+end)
 
 z = b*x^2
 _, c1, c2, c3, c4, c5 = Kepler.stumpff5(b*x^2)

@@ -5,7 +5,7 @@ function solve(pos0, vel0, dt, gm; max_iter = 20)
 end
 
 "Universal kepler solver."
-function propagate(pos, vel, dt, gm; max_iter = 20)
+function propagate(pos::AbstractVector{T}, vel::AbstractVector{T}, dt::T, gm::T; max_iter::Int = 20, tol = 1e-8) where {T}
     if dt == 0
         return pos, vel
     end
@@ -47,6 +47,7 @@ function propagate(pos, vel, dt, gm; max_iter = 20)
     dth, rh = universal_kepler2(xh, b, r0, s0, gm)
     yh = dth - dt
 
+    # establish the bracket
     i = 0
     while i < 1000 && (sign(yl) == sign(yh) || isinf(dth) || isnan(dth))
         i += 1
@@ -67,12 +68,29 @@ function propagate(pos, vel, dt, gm; max_iter = 20)
         end
     end
 
-    x = try
-        method = A42()
-        find_zero(_x -> universal_kepler(_x, b, r0, s0, gm) - dt, (xl, xh), method)
-    catch _
-        throw((pos = pos, vel = vel, dt = dt, gm = gm))
+    # we can now guaruntee a solution
+    # TODO: utilize derivative based methods 
+    while abs(xh - xl) < tol
+        x = 0.5(xl + xh)
+        y = universal_kepler(x, b, r0, s0, gm) - dt
+        if sign(y) == sign(yl)
+            xl = x
+            yl = y
+        elseif sign(y) == sign(yh)
+            xh = x
+            yh = y
+        elseif sign(y) == 0.0
+            break
+        end
     end
+    x = 0.5(xl + xh)
+    # x = xh
+    # x = try
+    #     method = A42()
+    #     find_zero(_x -> universal_kepler(_x, b, r0, s0, gm) - dt, (xl, xh), method)
+    # catch _
+    #     throw((pos = pos, vel = vel, dt = dt, gm = gm))
+    # end
 
     # compute f and g functions
     _, c1, c2, c3 = stumpff(b*x^2)
@@ -150,12 +168,22 @@ function propagate_with_partials(pos, vel, dt, gm; max_iter = 20)
         end
     end
 
-    x = try
-        method = A42()
-        find_zero(_x -> universal_kepler(_x, b, r0, s0, gm) - dt, (xl, xh), method)
-    catch _
-        throw((pos = pos, vel = vel, dt = dt, gm = gm))
+    # we can now guaruntee a solution
+    # TODO: utilize derivative based methods 
+    while abs(xh - xl) < tol
+        x = 0.5(xl + xh)
+        y = universal_kepler(x, b, r0, s0, gm) - dt
+        if sign(y) == sign(yl)
+            xl = x
+            yl = y
+        elseif sign(y) == sign(yh)
+            xh = x
+            yh = y
+        elseif sign(y) == 0.0
+            break
+        end
     end
+    x = 0.5(xl + xh)
 
     # compute f and g functions
     _, c1, c2, c3, c4, c5 = stumpff5(b*x^2)
@@ -214,14 +242,14 @@ end
 #     return L
 # end
 
-function universal_kepler(x, b, r0, s0, gm)
+function universal_kepler(x::T, b::T, r0::T, s0::T, gm::T) where {T}
     z  = b*x^2
     _, c1, c2, c3 = stumpff(z)
     dt = x*(r0*c1 + x*(s0*c2 + gm*x*c3))
     return dt
 end
 
-function universal_kepler2(x, b, r0, s0, gm)
+function universal_kepler2(x::T, b::T, r0::T, s0::T, gm::T) where {T}
     z  = b*x^2
     c0, c1, c2, c3 = stumpff(z)
     dt = x*(r0*c1 + x*(s0*c2 + gm*x*c3))
@@ -229,7 +257,7 @@ function universal_kepler2(x, b, r0, s0, gm)
     return dt, r
 end
 
-function stumpff(z)
+function stumpff(z::T) where {T}
     if z > 1e-3
         c0 = cos(sqrt(z))
         c1 = sin(sqrt(z))/sqrt(z)
