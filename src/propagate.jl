@@ -5,7 +5,7 @@ function solve(pos0, vel0, dt, gm; max_iter = 20)
 end
 
 "Universal kepler solver."
-function propagate(pos::AbstractVector{T}, vel::AbstractVector{T}, dt::T, gm::T; max_iter::Int = 20, tol = 1e-8) where {T}
+function propagate(pos, vel, dt, gm; max_iter::Int = 20, tol = 1e-15)
     if dt == 0
         return pos, vel
     end
@@ -70,8 +70,10 @@ function propagate(pos::AbstractVector{T}, vel::AbstractVector{T}, dt::T, gm::T;
 
     # we can now guaruntee a solution
     # TODO: utilize derivative based methods 
+    # x = 
     while abs(xh - xl) < tol
         x = 0.5(xl + xh)
+        # x = 
         y = universal_kepler(x, b, r0, s0, gm) - dt
         if sign(y) == sign(yl)
             xl = x
@@ -84,13 +86,6 @@ function propagate(pos::AbstractVector{T}, vel::AbstractVector{T}, dt::T, gm::T;
         end
     end
     x = 0.5(xl + xh)
-    # x = xh
-    # x = try
-    #     method = A42()
-    #     find_zero(_x -> universal_kepler(_x, b, r0, s0, gm) - dt, (xl, xh), method)
-    # catch _
-    #     throw((pos = pos, vel = vel, dt = dt, gm = gm))
-    # end
 
     # compute f and g functions
     _, c1, c2, c3 = stumpff(b*x^2)
@@ -105,7 +100,7 @@ function propagate(pos::AbstractVector{T}, vel::AbstractVector{T}, dt::T, gm::T;
     return posf, velf
 end
 
-function propagate_with_partials(pos, vel, dt, gm; max_iter = 20)
+function propagate_with_partials(pos, vel, dt, gm; max_iter = 20, tol = 1e-15)
     if dt == 0
         return pos, vel, I3, I3, I3, I3
     end
@@ -242,14 +237,14 @@ end
 #     return L
 # end
 
-function universal_kepler(x::T, b::T, r0::T, s0::T, gm::T) where {T}
+function universal_kepler(x, b, r0, s0, gm)
     z  = b*x^2
     _, c1, c2, c3 = stumpff(z)
     dt = x*(r0*c1 + x*(s0*c2 + gm*x*c3))
     return dt
 end
 
-function universal_kepler2(x::T, b::T, r0::T, s0::T, gm::T) where {T}
+function universal_kepler2(x, b, r0, s0, gm)
     z  = b*x^2
     c0, c1, c2, c3 = stumpff(z)
     dt = x*(r0*c1 + x*(s0*c2 + gm*x*c3))
@@ -257,7 +252,7 @@ function universal_kepler2(x::T, b::T, r0::T, s0::T, gm::T) where {T}
     return dt, r
 end
 
-function stumpff(z::T) where {T}
+function stumpff(z)
     if z > 1e-3
         c0 = cos(sqrt(z))
         c1 = sin(sqrt(z))/sqrt(z)
