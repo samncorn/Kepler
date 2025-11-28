@@ -131,6 +131,7 @@ function propagate_with_partials(pos, vel, dt, gm; max_iter = 20, tol = 1e-15)
     # bracket = (0.0, dt/r)
     xl = 0.0
     yl = -dt
+    rl = r0
 
     # better initial guesses
     # xh = dt/r0
@@ -150,7 +151,7 @@ function propagate_with_partials(pos, vel, dt, gm; max_iter = 20, tol = 1e-15)
         dt/r0
     end
 
-        dth, rh = universal_kepler2(xh, b, r0, s0, gm)
+    dth, rh = universal_kepler2(xh, b, r0, s0, gm)
     yh = dth - dt
 
     # establish the bracket
