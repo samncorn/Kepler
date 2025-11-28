@@ -20,6 +20,98 @@ function propagate(pos, vel, dt, gm; max_iter::Int = 100_000, tol = 1e-15)
     s0 = dot(pos, vel)
     b  = 2gm/r0 - dot(vel, vel)
 
+    x = solve_kepler_universal_A42(pos, vel, gm, dt)
+    # x = solve_kepler_universal_lmm12(pos, vel, gm, dt)
+
+    # compute f and g functions
+    _, c1, c2, c3 = stumpff(b*x^2)
+    f    = 1 - (gm/r0)*(x^2)*c2
+    g    = dt - gm*(x^3)*c3
+    posf = f*pos + g*vel
+    rf   = norm(posf)
+    df   = -(gm/(rf*r0))*x*c1
+    dg   = 1 - (gm/rf)*(x^2)*c2
+    velf = df*pos + dg*vel
+
+    return posf, velf
+end
+
+function propagate_with_partials(pos, vel, dt, gm; max_iter = 100_000, tol = 1e-15)
+    if dt == 0
+        return pos, vel, I3, I3, I3, I3
+    end
+
+    if dt < 0
+        # posf, velf = propagate(pos, -vel, -dt, gm; max_iter = max_iter)
+        posf, velf, dxdx, dxdv, dvdx, dvdv = propagate_with_partials(pos, -vel, -dt, gm; max_iter = max_iter)
+        return posf, -velf, dxdx, -dxdv, -dvdx, dvdv
+    end
+
+    # constants
+    r0 = norm(pos)
+    s0 = dot(pos, vel)
+    b  = 2gm/r0 - dot(vel, vel)
+
+    x = solve_kepler_universal_A42(pos, vel, gm, dt)
+    # x = solve_kepler_universal_lmm12(pos, vel, gm, dt)
+
+    # compute f and g functions
+    _, c1, c2, c3, c4, c5 = stumpff5(b*x^2)
+    f    = 1 - (gm/r0)*(x^2)*c2
+    g    = dt - gm*(x^3)*c3
+    posf = f*pos + g*vel
+    rf   = norm(posf)
+    df   = -(gm/(rf*r0))*x*c1
+    dg   = 1 - (gm/rf)*(x^2)*c2
+    velf = df*pos + dg*vel
+
+    # compute the partials (Battin)
+    C = gm*(x^2)*(gm*(x^3)*(3c5 - c4) - dt*c2)
+    delr = posf - pos
+    delv = velf - vel
+
+    # try the Der 1998 formulation
+    v0 = norm(vel)
+    a  = b/gm
+    U1 = sqrt(gm)*x*c1
+    U2 = gm*(x^2)*c2
+    U3 = sqrt(gm)*(x^3)*gm*c3
+    M1 = pos*transpose(pos)/r0^2
+    M2 = pos*transpose(vel)/(r0*v0)
+    M3 = vel*transpose(pos)/(r0*v0)
+    M4 = vel*transpose(vel)/v0^2
+
+    k11  = abs(a) < 1e-6 ? 0.0 : (1/(a*rf*r0^2))*(3U1*U3 + (a*r0 - 2)*U2^2) + (U1^2)/rf + U2/r0
+    k12  = v0*U1*U2/(rf*sqrt(gm))
+    k13  = abs(a) < 1e-6 ? 0.0 : v0/(a*rf*sqrt(gm)*r0^2)*(r0*U1*U2 + 2*s0/sqrt(gm)*U2^2 + 3*U2*U3 - 3rf*U3 + a*(r0^2)*U1*U2)
+    k14  = (v0^2)*(U2^2)/(rf*gm)
+    dxdx = f*I3 + k11*M1 + k12*M2 + k13*M3 + k14*M4
+
+    k21  = r0*U1*U2/(rf*sqrt(gm))
+    k22  = abs(a) < 1e-6 ? 0.0 : (v0/(a*rf*gm))*(3U1*U3 + (a*r0 - 2)*U2^2)
+    k23  = r0*v0*(U2^2)/(rf*gm)
+    k24  = abs(a) < 1e-6 ? 0.0 : ((v0^2)/(a*rf*gm*sqrt(gm)))*(r0*U1*U2 + 2s0/sqrt(gm)*U2^2 + 3U2*U3 - 3rf*U3)
+    dxdv = g*I3 + k21*M1 + k22*M2 + k23*M3 + k24*M4
+
+    # dxdx = f*I3 + (rf/gm)*delv*transpose(delv) + (1/r0^3)*(r0*(1-f)*posf*transpose(pos) + C*velf*transpose(pos))
+    # dxdv = g*I3 + (r0/gm)*(1-f)*(delr*transpose(vel) - delv*transpose(pos)) + (C/gm)*velf*transpose(vel)
+    dvdx = (
+        - (1/r0^2)*delv*transpose(pos) 
+        - (1/rf^2)*posf*transpose(delv) 
+        + df*(I3 - (1/rf^2)*posf*transpose(posf) + (1/(rf*gm))*(posf*transpose(velf) - velf*transpose(posf))*posf*transpose(delv))
+        - gm*C/(rf*r0)^3*posf*transpose(pos)
+        )
+    dvdv = (r0/gm)*delv*transpose(delv) + (1/rf^3)*(r0*(1-f)*posf*transpose(pos) - C*posf*transpose(vel)) + dg*I3
+
+    return posf, velf, dxdx, dxdv, dvdx, dvdv
+end
+
+function solve_kepler_universal_A42(pos, vel, gm, dt)
+    # constants
+    r0 = norm(pos)
+    s0 = dot(pos, vel)
+    b  = 2gm/r0 - dot(vel, vel)
+
     # try to bracket the root
     # dt/dx = r >= 0, and monotonic, so we can step until we find a bracket
     # bracket = (0.0, dt/r)
@@ -70,57 +162,10 @@ function propagate(pos, vel, dt, gm; max_iter::Int = 100_000, tol = 1e-15)
         end
     end
 
-    # we can now guaruntee a solution
-    # TODO: utilize derivative based methods 
-    x = 0.5*(xh + xl)
-    i = 0
-    while abs(xh - xl) > tol && i < max_iter
-        # x = 0.5(xl + xh)
-        i += 1
-        x = Kepler.lmm12_step(xl, xh, yl, yh, rl, rh)
-        if x == xl || x == xh
-            break
-        end
-        y, r = Kepler.universal_kepler2(x, b, r0, s0, gm)
-        y -= dt
-        if sign(y) == sign(yl)
-            xl = x
-            yl = y
-            rl = r
-        elseif sign(y) == sign(yh)
-            xh = x
-            yh = y
-            rh = r
-        elseif sign(y) == 0
-            break
-        end
-    end
-    x = 0.5(xl + xh)
-
-    # compute f and g functions
-    _, c1, c2, c3 = stumpff(b*x^2)
-    f    = 1 - (gm/r0)*(x^2)*c2
-    g    = dt - gm*(x^3)*c3
-    posf = f*pos + g*vel
-    rf   = norm(posf)
-    df   = -(gm/(rf*r0))*x*c1
-    dg   = 1 - (gm/rf)*(x^2)*c2
-    velf = df*pos + dg*vel
-
-    return posf, velf
+    return find_zero(_x -> universal_kepler(_x, b, r0, s0, gm) - dt, (xl, xh), A42())
 end
 
-function propagate_with_partials(pos, vel, dt, gm; max_iter = 20, tol = 1e-15)
-    if dt == 0
-        return pos, vel, I3, I3, I3, I3
-    end
-
-    if dt < 0
-        # posf, velf = propagate(pos, -vel, -dt, gm; max_iter = max_iter)
-        posf, velf, dxdx, dxdv, dvdx, dvdv = propagate_with_partials(pos, -vel, -dt, gm; max_iter = max_iter)
-        return posf, -velf, dxdx, -dxdv, -dvdx, dvdv
-    end
-
+function solve_kepler_universal_lmm12(pos, vel, gm, dt)
     # constants
     r0 = norm(pos)
     s0 = dot(pos, vel)
@@ -178,17 +223,39 @@ function propagate_with_partials(pos, vel, dt, gm; max_iter = 20, tol = 1e-15)
 
     # we can now guaruntee a solution
     # TODO: utilize derivative based methods 
-    x = 0.5*(xh + xl)
+    step = typemax(xh)
+    x = xh
+    y = yh
     i = 0
-    while abs(xh - xl) > tol && i < max_iter
-        # x = 0.5(xl + xh)
+    x1 = xl
+    x2 = xh
+    y1 = yl
+    y2 = yh
+    r1 = rl
+    r2 = rh
+    # while abs(xh - xl) > tol && i < max_iter && step > tol
+    while abs(y) > tol && abs(xh - xl) > tol && i < max_iter 
         i += 1
-        x = Kepler.lmm12_step(xl, xh, yl, yh, rl, rh)
-        if x == xl || x == xh
-            break
+        # xb = 0.5(xl + xh)
+        # x2 = Kepler.lmm12_step(xl, xh, yl, yh, rl, rh)
+
+        # step = abs(xb - x)
+
+        # y, r = Kepler.universal_kepler2(x2, b, r0, s0, gm)
+        # y -= dt
+        x = lmm12_step(x1, x2, y1, y2, r1, r2)
+        if x < xl || x > xh 
+            x = 0.5*(xh + xl)
         end
         y, r = Kepler.universal_kepler2(x, b, r0, s0, gm)
-        y -= dt
+        step = abs(x - x1)
+        y   -= dt
+
+        if y == 0
+            break 
+        end
+
+        # assign the bracket
         if sign(y) == sign(yl)
             xl = x
             yl = y
@@ -200,60 +267,17 @@ function propagate_with_partials(pos, vel, dt, gm; max_iter = 20, tol = 1e-15)
         elseif sign(y) == 0
             break
         end
+
+        # shift the interpolants
+        x2 = x1
+        y2 = y1
+        r2 = r1
+        x1 = x
+        y1 = y
+        r1 = r
     end
-    x = 0.5(xl + xh)
-
-    # compute f and g functions
-    _, c1, c2, c3, c4, c5 = stumpff5(b*x^2)
-    f    = 1 - (gm/r0)*(x^2)*c2
-    g    = dt - gm*(x^3)*c3
-    posf = f*pos + g*vel
-    rf   = norm(posf)
-    df   = -(gm/(rf*r0))*x*c1
-    dg   = 1 - (gm/rf)*(x^2)*c2
-    velf = df*pos + dg*vel
-
-    # compute the partials (Battin)
-    C = gm*(x^2)*(gm*(x^3)*(3c5 - c4) - dt*c2)
-    delr = posf - pos
-    delv = velf - vel
-
-    # try the Der 1998 formulation
-    v0 = norm(vel)
-    a  = b/gm
-    U1 = sqrt(gm)*x*c1
-    U2 = gm*(x^2)*c2
-    U3 = sqrt(gm)*(x^3)*gm*c3
-    M1 = pos*transpose(pos)/r0^2
-    M2 = pos*transpose(vel)/(r0*v0)
-    M3 = vel*transpose(pos)/(r0*v0)
-    M4 = vel*transpose(vel)/v0^2
-
-    k11  = abs(a) < 1e-6 ? 0.0 : (1/(a*rf*r0^2))*(3U1*U3 + (a*r0 - 2)*U2^2) + (U1^2)/rf + U2/r0
-    k12  = v0*U1*U2/(rf*sqrt(gm))
-    k13  = abs(a) < 1e-6 ? 0.0 : v0/(a*rf*sqrt(gm)*r0^2)*(r0*U1*U2 + 2*s0/sqrt(gm)*U2^2 + 3*U2*U3 - 3rf*U3 + a*(r0^2)*U1*U2)
-    k14  = (v0^2)*(U2^2)/(rf*gm)
-    dxdx = f*I3 + k11*M1 + k12*M2 + k13*M3 + k14*M4
-
-    k21  = r0*U1*U2/(rf*sqrt(gm))
-    k22  = abs(a) < 1e-6 ? 0.0 : (v0/(a*rf*gm))*(3U1*U3 + (a*r0 - 2)*U2^2)
-    k23  = r0*v0*(U2^2)/(rf*gm)
-    k24  = abs(a) < 1e-6 ? 0.0 : ((v0^2)/(a*rf*gm*sqrt(gm)))*(r0*U1*U2 + 2s0/sqrt(gm)*U2^2 + 3U2*U3 - 3rf*U3)
-    dxdv = g*I3 + k21*M1 + k22*M2 + k23*M3 + k24*M4
-
-    # dxdx = f*I3 + (rf/gm)*delv*transpose(delv) + (1/r0^3)*(r0*(1-f)*posf*transpose(pos) + C*velf*transpose(pos))
-    # dxdv = g*I3 + (r0/gm)*(1-f)*(delr*transpose(vel) - delv*transpose(pos)) + (C/gm)*velf*transpose(vel)
-    dvdx = (
-        - (1/r0^2)*delv*transpose(pos) 
-        - (1/rf^2)*posf*transpose(delv) 
-        + df*(I3 - (1/rf^2)*posf*transpose(posf) + (1/(rf*gm))*(posf*transpose(velf) - velf*transpose(posf))*posf*transpose(delv))
-        - gm*C/(rf*r0)^3*posf*transpose(pos)
-        )
-    dvdv = (r0/gm)*delv*transpose(delv) + (1/rf^3)*(r0*(1-f)*posf*transpose(pos) - C*posf*transpose(vel)) + dg*I3
-
-    return posf, velf, dxdx, dxdv, dvdx, dvdv
+    return x
 end
-
 # function universal_kepler(y, l, k1, k2, k3)
 #     _, c1, c2, c3 = stumpff(l*y^2)
 #     L = y*(k1*c1 + y*(k2*c2 + y*k3*c3))

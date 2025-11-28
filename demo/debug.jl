@@ -175,6 +175,19 @@ gm  = T(398600.4415) # per vallado
 # dt = 1.1817809999920428
 # gm = 0.0002959122082326087
 
+# pos =  [
+#     -1.3347028771561549
+#     -2.5246146177966637
+#     -0.763545575524524
+#     ]
+# vel = [
+#     0.008437435721216961
+#     -0.00498389206490196
+#     -0.002819619612628427
+#     ]
+# dt = 6.045079838012947
+# gm = 0.0002959122082326087
+
 # benchmark
 function test()
     _pos = SVector{3}(1131.340, -2282.343, 6672.423)
@@ -186,14 +199,14 @@ function test()
     # return pos, vel
 end
 
-@code_warntype test()
+# @code_warntype test()
 @btime test()
-@allocated test()
+# @allocated test()
 # @profile test()
 # Profile.print()
 
-# posf, velf, dxdx, dxdv, dvdx, dvdv = Kepler.propagate_with_partials(pos, vel, dt, gm)
-posf, velf = Kepler.propagate(pos, vel, dt, gm)
+posf, velf, dxdx, dxdv, dvdx, dvdv = Kepler.propagate_with_partials(pos, vel, dt, gm)
+# posf, velf = Kepler.propagate(pos, vel, dt, gm)
 
 # check state against spice
 statef = SPICE.prop2b(gm, [pos..., vel...], dt)
@@ -223,6 +236,9 @@ if dt < 0
     dt  = -dt
     vel = -vel
 end
+
+tol = 1e-15
+max_iter = 1000
 
 # unwind the function to find problem
 r0 = norm(pos)
@@ -288,18 +304,46 @@ while i < 100 && (sign(yl) == sign(yh) || isinf(dth) || isnan(dth))
     end
 end
 
-x = 0.5*(xh + xl)
+step = typemax(xh)
+x = xh
+y = yh
 i = 0
-tol = 0.0
-while abs(xh - xl) > tol && i < 10000
-    # x = 0.5(xl + xh)
+x1 = xl
+x2 = xh
+y1 = yl
+y2 = yh
+r1 = rl
+r2 = rh
+# while abs(xh - xl) > tol && i < max_iter && step > tol
+while abs(y) > tol && abs(xh - xl) > tol && i < max_iter 
     i += 1
-    x = Kepler.lmm12_step(xl, xh, yl, yh, rl, rh)
-    if x == xl || x == xh
-        break
+    # xb = 0.5(xl + xh)
+    # x2 = Kepler.lmm12_step(xl, xh, yl, yh, rl, rh)
+
+    # step = abs(xb - x)
+
+    # y, r = Kepler.universal_kepler2(x2, b, r0, s0, gm)
+    # y -= dt
+    x = Kepler.lmm12_step(x1, x2, y1, y2, r1, r2)
+    if (x < xl || x > xh) || step < tol #|| i % 3 == 0
+        x = 0.5*(xh + xl)
+        println("bisect")
+    else
+        println("interpolate")
     end
+    println("x = $x")
+
     y, r = Kepler.universal_kepler2(x, b, r0, s0, gm)
-    y -= dt
+    println("y = $y")
+    step = abs(x - x1)
+    println("dx = $step")
+    y   -= dt
+
+    if y == 0
+        break 
+    end
+
+    # assign the bracket
     if sign(y) == sign(yl)
         xl = x
         yl = y
@@ -311,10 +355,18 @@ while abs(xh - xl) > tol && i < 10000
     elseif sign(y) == 0
         break
     end
-end
-x = 0.5(xl + xh)
-i
 
+    # shift the interpolants
+    x2 = x1
+    y2 = y1
+    r2 = r1
+    x1 = x
+    y1 = y
+    r1 = r
+    println()
+end
+
+i, x
 
 # (xl, xh)
 # xh - xl
