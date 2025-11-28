@@ -71,7 +71,7 @@ function propagate(pos, vel, dt, gm; max_iter::Int = 20, tol = 1e-15)
     # we can now guaruntee a solution
     # TODO: utilize derivative based methods 
     # x = 
-    while abs(xh - xl) < tol
+    while abs(xh - xl) > tol
         x = 0.5(xl + xh)
         # x = 
         y = universal_kepler(x, b, r0, s0, gm) - dt
@@ -165,7 +165,7 @@ function propagate_with_partials(pos, vel, dt, gm; max_iter = 20, tol = 1e-15)
 
     # we can now guaruntee a solution
     # TODO: utilize derivative based methods 
-    while abs(xh - xl) < tol
+    while abs(xh - xl) > tol
         x = 0.5(xl + xh)
         y = universal_kepler(x, b, r0, s0, gm) - dt
         if sign(y) == sign(yl)
