@@ -5,7 +5,7 @@ function solve(pos0, vel0, dt, gm; max_iter = 20)
 end
 
 "Universal kepler solver."
-function propagate(pos, vel, dt, gm; max_iter::Int = 20, tol = 1e-15)
+function propagate(pos, vel, dt, gm; max_iter::Int = 100_000, tol = 1e-15)
     if dt == 0
         return pos, vel
     end
@@ -25,6 +25,7 @@ function propagate(pos, vel, dt, gm; max_iter::Int = 20, tol = 1e-15)
     # bracket = (0.0, dt/r)
     xl = 0.0
     yl = -dt
+    rl = r0
 
     # better initial guesses
     # xh = dt/r0
@@ -63,6 +64,7 @@ function propagate(pos, vel, dt, gm; max_iter::Int = 20, tol = 1e-15)
             # xh += (dt - dth)/rh
             xh *= 2
             yl  = yh
+            rl  = rh
             dth, rh = universal_kepler2(xh, b, r0, s0, gm)
             yh  = dth - dt
         end
@@ -70,23 +72,25 @@ function propagate(pos, vel, dt, gm; max_iter::Int = 20, tol = 1e-15)
 
     # we can now guaruntee a solution
     # TODO: utilize derivative based methods 
-    # x = 
-    while abs(xh - xl) > tol
-        x = 0.5(xl + xh)
-
-        if x == xh || x == xl
-            # no longer advancing, return the value
+    x = 0.5*(xh + xl)
+    i = 0
+    while abs(xh - xl) > tol && i < max_iter
+        # x = 0.5(xl + xh)
+        i += 1
+        x = Kepler.lmm12_step(xl, xh, yl, yh, rl, rh)
+        if x == xl || x == xh
             break
         end
-
-        # x = 
-        y = universal_kepler(x, b, r0, s0, gm) - dt
+        y, r = Kepler.universal_kepler2(x, b, r0, s0, gm)
+        y -= dt
         if sign(y) == sign(yl)
             xl = x
             yl = y
+            rl = r
         elseif sign(y) == sign(yh)
             xh = x
             yh = y
+            rh = r
         elseif sign(y) == 0
             break
         end
@@ -146,9 +150,10 @@ function propagate_with_partials(pos, vel, dt, gm; max_iter = 20, tol = 1e-15)
         dt/r0
     end
 
-    dth, rh = universal_kepler2(xh, b, r0, s0, gm)
+        dth, rh = universal_kepler2(xh, b, r0, s0, gm)
     yh = dth - dt
 
+    # establish the bracket
     i = 0
     while i < 1000 && (sign(yl) == sign(yh) || isinf(dth) || isnan(dth))
         i += 1
@@ -164,6 +169,7 @@ function propagate_with_partials(pos, vel, dt, gm; max_iter = 20, tol = 1e-15)
             # xh += (dt - dth)/rh
             xh *= 2
             yl  = yh
+            rl  = rh
             dth, rh = universal_kepler2(xh, b, r0, s0, gm)
             yh  = dth - dt
         end
@@ -171,19 +177,25 @@ function propagate_with_partials(pos, vel, dt, gm; max_iter = 20, tol = 1e-15)
 
     # we can now guaruntee a solution
     # TODO: utilize derivative based methods 
-    while abs(xh - xl) > tol
-        x = 0.5(xl + xh)
-        if x == xh || x == xl
-            # no longer advancing, return the value
+    x = 0.5*(xh + xl)
+    i = 0
+    while abs(xh - xl) > tol && i < max_iter
+        # x = 0.5(xl + xh)
+        i += 1
+        x = Kepler.lmm12_step(xl, xh, yl, yh, rl, rh)
+        if x == xl || x == xh
             break
         end
-        y = universal_kepler(x, b, r0, s0, gm) - dt
+        y, r = Kepler.universal_kepler2(x, b, r0, s0, gm)
+        y -= dt
         if sign(y) == sign(yl)
             xl = x
             yl = y
+            rl = r
         elseif sign(y) == sign(yh)
             xh = x
             yh = y
+            rh = r
         elseif sign(y) == 0
             break
         end

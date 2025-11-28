@@ -192,8 +192,8 @@ end
 # @profile test()
 # Profile.print()
 
-posf, velf, dxdx, dxdv, dvdx, dvdv = Kepler.propagate_with_partials(pos, vel, dt, gm)
-# posf, velf = Kepler.propagate(pos, vel, dt, gm)
+# posf, velf, dxdx, dxdv, dvdx, dvdv = Kepler.propagate_with_partials(pos, vel, dt, gm)
+posf, velf = Kepler.propagate(pos, vel, dt, gm)
 
 # check state against spice
 statef = SPICE.prop2b(gm, [pos..., vel...], dt)
@@ -234,6 +234,7 @@ b  = 2gm/r0 - dot(vel, vel)
 # bracket = (0.0, dt/r)
 xl = 0.0
 yl = -dt
+rl = r0
 
 xh = if abs(gm*b) < 1e-5
     # parabolic (Vallado)
@@ -281,25 +282,54 @@ while i < 100 && (sign(yl) == sign(yh) || isinf(dth) || isnan(dth))
         # xh += (dt - dth)/rh
         xh *= 2
         yl  = yh
+        rl  = rh
         dth, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
         yh  = dth - dt
     end
 end
 
-(xl, xh)
-xh - xl
-Kepler.universal_kepler(xl, b, r0, s0, gm) - dt
-@benchmark Kepler.universal_kepler($xh, $b, $r0, $s0, $gm) - $dt
+x = 0.5*(xh + xl)
+i = 0
+tol = 0.0
+while abs(xh - xl) > tol && i < 10000
+    # x = 0.5(xl + xh)
+    i += 1
+    x = Kepler.lmm12_step(xl, xh, yl, yh, rl, rh)
+    if x == xl || x == xh
+        break
+    end
+    y, r = Kepler.universal_kepler2(x, b, r0, s0, gm)
+    y -= dt
+    if sign(y) == sign(yl)
+        xl = x
+        yl = y
+        rl = r
+    elseif sign(y) == sign(yh)
+        xh = x
+        yh = y
+        rh = r
+    elseif sign(y) == 0
+        break
+    end
+end
+x = 0.5(xl + xh)
+i
 
-@benchmark x = find_zero(_x -> Kepler.universal_kepler(_x, $b, $r0, $s0, $gm) - $dt, ($xl, $xh), A42())
-@benchmark x = (try
-    method = $A42()
-    # method = Bisection()
-    find_zero(_x -> Kepler.universal_kepler(_x, $b, $r0, $s0, $gm) - $dt, ($xl, $xh), method)
-catch _
-    # throw((pos = $pos, $vel = vel, dt = dt, gm = gm, bracket = (xl, xh)))
-    throw("HELL")
-end)
+
+# (xl, xh)
+# xh - xl
+# Kepler.universal_kepler(xl, b, r0, s0, gm) - dt
+# @benchmark Kepler.universal_kepler($xh, $b, $r0, $s0, $gm) - $dt
+
+# @benchmark x = find_zero(_x -> Kepler.universal_kepler(_x, $b, $r0, $s0, $gm) - $dt, ($xl, $xh), A42())
+# @benchmark x = (try
+#     method = $A42()
+#     # method = Bisection()
+#     find_zero(_x -> Kepler.universal_kepler(_x, $b, $r0, $s0, $gm) - $dt, ($xl, $xh), method)
+# catch _
+#     # throw((pos = $pos, $vel = vel, dt = dt, gm = gm, bracket = (xl, xh)))
+#     throw("HELL")
+# end)
 
 z = b*x^2
 _, c1, c2, c3, c4, c5 = Kepler.stumpff5(b*x^2)
