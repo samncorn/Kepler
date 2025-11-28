@@ -73,6 +73,12 @@ function propagate(pos, vel, dt, gm; max_iter::Int = 20, tol = 1e-15)
     # x = 
     while abs(xh - xl) > tol
         x = 0.5(xl + xh)
+
+        if x == xh || x == xl
+            # no longer advancing, return the value
+            break
+        end
+
         # x = 
         y = universal_kepler(x, b, r0, s0, gm) - dt
         if sign(y) == sign(yl)
@@ -81,7 +87,7 @@ function propagate(pos, vel, dt, gm; max_iter::Int = 20, tol = 1e-15)
         elseif sign(y) == sign(yh)
             xh = x
             yh = y
-        elseif sign(y) == 0.0
+        elseif sign(y) == 0
             break
         end
     end
@@ -167,6 +173,10 @@ function propagate_with_partials(pos, vel, dt, gm; max_iter = 20, tol = 1e-15)
     # TODO: utilize derivative based methods 
     while abs(xh - xl) > tol
         x = 0.5(xl + xh)
+        if x == xh || x == xl
+            # no longer advancing, return the value
+            break
+        end
         y = universal_kepler(x, b, r0, s0, gm) - dt
         if sign(y) == sign(yl)
             xl = x
@@ -174,7 +184,7 @@ function propagate_with_partials(pos, vel, dt, gm; max_iter = 20, tol = 1e-15)
         elseif sign(y) == sign(yh)
             xh = x
             yh = y
-        elseif sign(y) == 0.0
+        elseif sign(y) == 0
             break
         end
     end
