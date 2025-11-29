@@ -188,6 +188,8 @@ gm  = T(398600.4415) # per vallado
 # dt = 6.045079838012947
 # gm = 0.0002959122082326087
 
+# @code_warntype Kepler.kepler_guess(pos, vel, dt, gm)
+
 # benchmark
 function test()
     _pos = SVector{3}(1131.340, -2282.343, 6672.423)
@@ -199,14 +201,15 @@ function test()
     # return pos, vel
 end
 
-# @code_warntype test()
+# @code_warntype Kepler.universal_kepler
 @btime test()
+# exit()
 # @allocated test()
 # @profile test()
 # Profile.print()
 
-posf, velf, dxdx, dxdv, dvdx, dvdv = Kepler.propagate_with_partials(pos, vel, dt, gm)
-# posf, velf = Kepler.propagate(pos, vel, dt, gm)
+# posf, velf, dxdx, dxdv, dvdx, dvdv = Kepler.propagate_with_partials(pos, vel, dt, gm)
+posf, velf = Kepler.propagate(pos, vel, dt, gm)
 
 # check state against spice
 statef = SPICE.prop2b(gm, [pos..., vel...], dt)
@@ -303,6 +306,8 @@ while i < 100 && (sign(yl) == sign(yh) || isinf(dth) || isnan(dth))
         yh  = dth - dt
     end
 end
+
+x = find_zero(_x -> Kepler.universal_kepler(_x, b, r0, s0, gm) - dt, (xl, xh), A42())
 
 step = typemax(xh)
 x = xh
