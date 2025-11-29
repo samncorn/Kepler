@@ -189,6 +189,10 @@ gm  = T(398600.4415) # per vallado
 # gm = 0.0002959122082326087
 
 # @code_warntype Kepler.kepler_guess(pos, vel, dt, gm)
+pos = [-0.7183965575893964, -0.9774674664132318, -0.39426994210184735, ]
+vel = [-0.20559365545142516, -0.3537121254840017, -0.11516122667982925]
+gm = 0.0002959122082326087
+dt = 2.928104999475181
 
 # benchmark
 function test()
@@ -208,8 +212,8 @@ end
 # @profile test()
 # Profile.print()
 
-# posf, velf, dxdx, dxdv, dvdx, dvdv = Kepler.propagate_with_partials(pos, vel, dt, gm)
-posf, velf = Kepler.propagate(pos, vel, dt, gm)
+posf, velf, dxdx, dxdv, dvdx, dvdv = Kepler.propagate_with_partials(pos, vel, dt, gm)
+# posf, velf = Kepler.propagate(pos, vel, dt, gm)
 
 # check state against spice
 statef = SPICE.prop2b(gm, [pos..., vel...], dt)
@@ -235,6 +239,31 @@ dvdv .- dvdv_auto
 # check orbital elements
 q, e, i, Om, w, tp = Kepler.cometary(pos, vel, dt, gm)
 
+function kepler_guess(pos, vel, dt, gm)
+    r0 = norm(pos)
+    s0 = dot(pos, vel)
+    b  = 2gm/r0 - dot(vel, vel)
+    x0 = if abs(gm*b) < 1e-6
+        # parabolic (Vallado)
+        h = cross(pos, vel)
+        p = dot(h, h)/gm
+        s = acot(3*sqrt(gm/p^3)*dt)/2
+        w = atan(cbrt(tan(s)))
+        sqrt(p)*2*cot(2w)/sqrt(gm)
+    # elseif gm*b < 0
+    #     # hyperbolic (Vallado)
+    #     a = gm*b
+    #     abs(sqrt(-a)*log(-2gm*dt/(a*(s0+sqrt(-gm*a)*(1 - r0/a))))/sqrt(gm))
+    # elseif gm*b > 0
+    #     # elliptic
+    #     dt/r0
+    else 
+        # throw((gm = gm, b = b))
+        dt/r0
+    end
+    return x0
+end
+
 if dt < 0
     dt  = -dt
     vel = -vel
@@ -248,6 +277,8 @@ r0 = norm(pos)
 s0 = dot(pos, vel)
 b  = 2gm/r0 - dot(vel, vel)
 
+gm*b
+
 # try to bracket the root
 # dt/dx = r >= 0, and monotonic, so we can step until we find a bracket
 # bracket = (0.0, dt/r)
@@ -255,22 +286,8 @@ xl = 0.0
 yl = -dt
 rl = r0
 
-xh = if abs(gm*b) < 1e-5
-    # parabolic (Vallado)
-    h = cross(pos, vel)
-    p = dot(h, h)/gm
-    s = acot(3*sqrt(gm/p^3)*dt)/2
-    w = atan(cbrt(tan(s)))
-    sqrt(p)*2*cot(2w)/sqrt(gm)
-elseif gm*b < 0
-    # hyperbolic (Vallado)
-    a = gm/b
-    sqrt(-a)*log(-2gm*dt/(a*(s0+sqrt(-gm*a)*(1 - r0/a))))/sqrt(gm)
-elseif gm*b > 0
-    # elliptic
-    dt/r0
-end
-
+xh = kepler_guess(pos, vel, dt, gm)
+# xh = dt/r0
 dth, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
 yh = dth - dt
 

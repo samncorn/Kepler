@@ -166,15 +166,16 @@ function kepler_guess(pos, vel, dt, gm)
         s = acot(3*sqrt(gm/p^3)*dt)/2
         w = atan(cbrt(tan(s)))
         sqrt(p)*2*cot(2w)/sqrt(gm)
-    elseif gm*b < 0
-        # hyperbolic (Vallado)
-        a = gm/b
-        abs(sqrt(-a)*log(-2gm*dt/(a*(s0+sqrt(-gm*a)*(1 - r0/a))))/sqrt(gm))
-    elseif gm*b > 0
-        # elliptic
-        dt/r0
+    # elseif gm*b < 0
+    #     # hyperbolic (Vallado)
+    #     a = gm/b
+    #     abs(sqrt(-a)*log(-2gm*dt/(a*(s0+sqrt(-gm*a)*(1 - r0/a))))/sqrt(gm))
+    # elseif gm*b > 0
+    #     # elliptic
+    #     dt/r0
     else 
-        throw((gm = gm, b = b))
+        # throw((gm = gm, b = b))
+        dt/r0
     end
     return x0
 end
