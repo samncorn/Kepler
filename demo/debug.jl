@@ -189,10 +189,15 @@ gm  = T(398600.4415) # per vallado
 # gm = 0.0002959122082326087
 
 # @code_warntype Kepler.kepler_guess(pos, vel, dt, gm)
-pos = [-0.7183965575893964, -0.9774674664132318, -0.39426994210184735, ]
-vel = [-0.20559365545142516, -0.3537121254840017, -0.11516122667982925]
+# pos = [-0.7183965575893964, -0.9774674664132318, -0.39426994210184735, ]
+# vel = [-0.20559365545142516, -0.3537121254840017, -0.11516122667982925]
+# gm = 0.0002959122082326087
+# dt = 2.928104999475181
+
+pos = [-6.224802463424813, -10.379151499095524, -3.6715308775007545, ]
+vel = [4.8715228591555855, 7.97119569567709, 2.6743722732185318]
+dt = 1.178212999831885
 gm = 0.0002959122082326087
-dt = 2.928104999475181
 
 # benchmark
 function test()
@@ -321,6 +326,28 @@ while i < 100 && (sign(yl) == sign(yh) || isinf(dth) || isnan(dth))
         rl  = rh
         dth, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
         yh  = dth - dt
+    end
+end
+
+    # establish the bracket
+i = 0
+while i < 1000 && (sign(yl) == sign(yh) || isinf(yh) || isnan(yh))
+    i += 1
+    if isinf(yh) || isnan(yh) #|| isnan(rh)
+        xh = (xl + xh)/2
+        yh, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
+        yh -= dt
+        if xl == xh 
+            throw("dt exceeds the computable range of values")
+        end
+    elseif sign(yl) == sign(yh) && !isnan(rh)
+        xl  = xh
+        # xh += (dt - yh)/rh
+        xh *= 2
+        yl  = yh
+        rl  = rh
+        yh, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
+        yh -= dt
     end
 end
 

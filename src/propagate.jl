@@ -122,6 +122,7 @@ function solve_kepler_universal_A42(pos, vel, gm, dt)
     # xh = dt/r0
     # xh = 1000.0
     yh, rh = universal_kepler2(xh, b, r0, s0, gm)
+    yh -= dt
 
     xl = zero(xh)
     # xl = 0.0
@@ -166,16 +167,16 @@ function kepler_guess(pos, vel, dt, gm)
         s = acot(3*sqrt(gm/p^3)*dt)/2
         w = atan(cbrt(tan(s)))
         sqrt(p)*2*cot(2w)/sqrt(gm)
-    # elseif gm*b < 0
-    #     # hyperbolic (Vallado)
-    #     a = gm/b
-    #     abs(sqrt(-a)*log(-2gm*dt/(a*(s0+sqrt(-gm*a)*(1 - r0/a))))/sqrt(gm))
-    # elseif gm*b > 0
-    #     # elliptic
-    #     dt/r0
-    else 
-        # throw((gm = gm, b = b))
+    elseif gm*b < 0
+        # hyperbolic (Vallado)
+        a = gm/b
+        abs(sqrt(-a)*log(-2gm*dt/(a*(s0+sqrt(-gm*a)*(1 - r0/a))))/sqrt(gm))
+    elseif gm*b > 0
+        # elliptic
         dt/r0
+    else 
+        throw((gm = gm, b = b))
+        # dt/r0
     end
     return x0
 end
