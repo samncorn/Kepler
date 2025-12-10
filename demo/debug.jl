@@ -194,31 +194,26 @@ gm  = T(398600.4415) # per vallado
 # gm = 0.0002959122082326087
 # dt = 2.928104999475181
 
-pos = [-6.224802463424813, -10.379151499095524, -3.6715308775007545, ]
-vel = [4.8715228591555855, 7.97119569567709, 2.6743722732185318]
-dt = 1.178212999831885
-gm = 0.0002959122082326087
+# pos = [-6.224802463424813, -10.379151499095524, -3.6715308775007545, ]
+# vel = [4.8715228591555855, 7.97119569567709, 2.6743722732185318]
+# dt = 1.178212999831885
+# gm = 0.0002959122082326087
 
-# benchmark
-function test()
-    _pos = SVector{3}(1131.340, -2282.343, 6672.423)
-    _vel = SVector{3}(-5.64305, 4.30333, 2.42879)
-    _dt  = 40.0*60.0
-    _gm  = 398600.4415
+pos = SA[2.728581306615723, 6.897075632745469, 4.016242824109237]
+vel = SA[-0.7220864368853009, -1.6881569254954192, -0.9597770393526094]
+dt  = 7.110738782983408
+gm  = 0.0002959122082326087
 
-    pos, vel = Kepler.propagate(_pos, _vel, _dt, _gm)
-    # return pos, vel
-end
+# pos = SA[-0.5176879872408338, -0.6184946711549144, -0.2569123206788124]
+# vel = SA[0.19856961982026536, 0.3207347158719085, 0.16775903946217685]
+# dt  = 20.0
+# gm  = 0.0002959122082326087
 
-# @code_warntype Kepler.universal_kepler
-@btime test()
-# exit()
-# @allocated test()
-# @profile test()
-# Profile.print()
+# MAKE SURE STATIC VECTORS ARE USED
+@btime Kepler.propagate($pos, $vel, $dt, $gm)
 
-posf, velf, dxdx, dxdv, dvdx, dvdv = Kepler.propagate_with_partials(pos, vel, dt, gm)
-# posf, velf = Kepler.propagate(pos, vel, dt, gm)
+# posf, velf, dxdx, dxdv, dvdx, dvdv = Kepler.propagate_with_partials(pos, vel, dt, gm)
+posf, velf = Kepler.propagate(pos, vel, dt, gm)
 
 # check state against spice
 statef = SPICE.prop2b(gm, [pos..., vel...], dt)
@@ -272,6 +267,7 @@ end
 if dt < 0
     dt  = -dt
     vel = -vel
+    @printf "preopagting reverse time state..."
 end
 
 tol = 1e-15
@@ -291,9 +287,61 @@ xl = 0.0
 yl = -dt
 rl = r0
 
-xh = kepler_guess(pos, vel, dt, gm)
-# xh = dt/r0
-dth, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
+xh = Kepler.kepler_guess(pos, vel, dt, gm)
+xh = dt/r0
+# dth, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
+
+z  = b*xh^2
+c0b, c1b, c2b, c3b = Kepler.stumpff(z)
+# c0, c1, c2, c3, c4, c5 = Kepler.stumpff_fold(z)
+
+function stumpff_continued(i, z, n)
+    c = one(z)
+    for k in n:-1:1
+        # c -= z/((i + 2k)*(i + k))
+        c = 1 - z/((i + 2k)*(i + k))
+    end
+    return c*factorial(i)
+end
+
+n  = 0
+zn = z
+while abs(zn) > 0.001
+    zn /= 4
+    n  += 1
+end
+n
+zn
+
+# c2 = (1-zn*(1-zn*(1-zn*(1-zn*(1-zn*(1-zn*a1)*a2)*a3)*a4)*a5)*a6)/2
+# c3 = (1-zn*(1-zn*(1-zn*(1-zn*(1-zn*(1-zn*b1)*b2)*b3)*b4)*b5)*b6)*b7
+
+c5 = stumpff_continued(5, zn, 20)
+c4 = stumpff_continued(4, zn, 20)
+c3 = 1/6 - zn*c5
+c2 = 1/2 - zn*c4
+c1 = 1   - zn*c3
+while n > 0
+    zn *= 4
+    c5  = (c5 + c4 + c3*c2)/16
+    c4  = c3*(1 + c1)/8
+    c3  = 1/6 - zn*c5
+    c2  = 1/2 - zn*c4
+    c1  = 1   - zn*c3
+    n  -= 1
+end
+zn
+n
+zn - z
+c0 = 1 - zn*c2
+c0 - c0b
+c1 - c1b
+
+# c0, c1, c2, c3 = c0b, c1b, c2b, c3b
+
+dth = xh*(r0*c1 + xh*(s0*c2 + gm*xh*c3))
+rh  = r0*c0 + xh*(s0*c1 + xh*gm*c2)
+
 yh = dth - dt
 
 # xh = (xl + xh)/2
@@ -322,70 +370,42 @@ while i < 100 && (sign(yl) == sign(yh) || isinf(dth) || isnan(dth))
         xl  = xh
         # xh += (dt - dth)/rh
         xh *= 2
+        # xh += (dth)/rh
         yl  = yh
         rl  = rh
         dth, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
         yh  = dth - dt
     end
 end
+x = (xl + xh)/2
 
-    # establish the bracket
-i = 0
-while i < 1000 && (sign(yl) == sign(yh) || isinf(yh) || isnan(yh))
-    i += 1
-    if isinf(yh) || isnan(yh) #|| isnan(rh)
-        xh = (xl + xh)/2
-        yh, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
-        yh -= dt
-        if xl == xh 
-            throw("dt exceeds the computable range of values")
-        end
-    elseif sign(yl) == sign(yh) && !isnan(rh)
-        xl  = xh
-        # xh += (dt - yh)/rh
-        xh *= 2
-        yl  = yh
-        rl  = rh
-        yh, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
-        yh -= dt
-    end
-end
+@printf "  lower bound = %.10f\n" xl
+@printf "    estimate  = %.10f\n" x
+@printf "  upper bound = %.10f\n" xh
 
-x = find_zero(_x -> Kepler.universal_kepler(_x, b, r0, s0, gm) - dt, (xl, xh), A42())
+# x = find_zero(_x -> Kepler.universal_kepler(_x, b, r0, s0, gm) - dt, (xl, xh), A42())
 
-step = typemax(xh)
-x = xh
-y = yh
-i = 0
-x1 = xl
-x2 = xh
-y1 = yl
-y2 = yh
-r1 = rl
-r2 = rh
+# safeguard against slow convergence by tracking iterations since either end of the bracket changed
+hi = 0
+li = 0
+n_force = 2
 # while abs(xh - xl) > tol && i < max_iter && step > tol
-while abs(y) > tol && abs(xh - xl) > tol && i < max_iter 
+while abs(xh - xl) > eps(xl) && i < max_iter 
     i += 1
-    # xb = 0.5(xl + xh)
-    # x2 = Kepler.lmm12_step(xl, xh, yl, yh, rl, rh)
-
-    # step = abs(xb - x)
-
-    # y, r = Kepler.universal_kepler2(x2, b, r0, s0, gm)
-    # y -= dt
-    x = Kepler.lmm12_step(x1, x2, y1, y2, r1, r2)
-    if (x < xl || x > xh) || step < tol #|| i % 3 == 0
-        x = 0.5*(xh + xl)
-        println("bisect")
-    else
-        println("interpolate")
+    @printf "iteration %d\n" i
+    x  = if hi >= n_force || li >= n_force || x == xh || x == xl    
+        # check how the brackets are progressing
+        # if one hasnt changed in enough iterations, force a bisection step
+        (xh + xl)/2
+        # check for lack of change in one bracket, force a bisection
+    else 
+        Kepler.lmm12_step(xl, xh, yl, yh, rl, rh)
     end
-    println("x = $x")
-
+    @printf "  lower bound = %.10f\n" xl
+    @printf "    estimate  = %.10f\n" x
+    @printf "  upper bound = %.10f\n" xh
+    
     y, r = Kepler.universal_kepler2(x, b, r0, s0, gm)
-    println("y = $y")
-    step = abs(x - x1)
-    println("dx = $step")
     y   -= dt
 
     if y == 0
@@ -394,32 +414,30 @@ while abs(y) > tol && abs(xh - xl) > tol && i < max_iter
 
     # assign the bracket
     if sign(y) == sign(yl)
+        hi += 1
+        li = 0
         xl = x
         yl = y
         rl = r
     elseif sign(y) == sign(yh)
+        li += 1
+        hi = 0
         xh = x
         yh = y
         rh = r
-    elseif sign(y) == 0
-        break
+    else
+        throw("bad step, sign check doesn't proeprly evaluate")
     end
-
-    # shift the interpolants
-    x2 = x1
-    y2 = y1
-    r2 = r1
-    x1 = x
-    y1 = y
-    r1 = r
-    println()
 end
 
-i, x
-
-# (xl, xh)
 # xh - xl
-# Kepler.universal_kepler(xl, b, r0, s0, gm) - dt
+
+Kepler.universal_kepler(xl, b, r0, s0, gm) - dt
+Kepler.universal_kepler(x, b, r0, s0, gm) - dt
+Kepler.universal_kepler(xh, b, r0, s0, gm) - dt
+
+(Kepler.universal_kepler(xl, b, r0, s0, gm) + Kepler.universal_kepler(xh, b, r0, s0, gm))/2 - dt
+
 # @benchmark Kepler.universal_kepler($xh, $b, $r0, $s0, $gm) - $dt
 
 # @benchmark x = find_zero(_x -> Kepler.universal_kepler(_x, $b, $r0, $s0, $gm) - $dt, ($xl, $xh), A42())
@@ -433,7 +451,8 @@ i, x
 # end)
 
 z = b*x^2
-_, c1, c2, c3, c4, c5 = Kepler.stumpff5(b*x^2)
+# _, c1, c2, c3, c4, c5 = Kepler.stumpff5(b*x^2)
+c0, c1, c2, c3 = Kepler.stumpff(z)
 f    = 1 - (gm/r0)*(x^2)*c2
 g    = dt - gm*(x^3)*c3
 posf = f*pos + g*vel
@@ -441,6 +460,14 @@ rf   = norm(posf)
 df   = -(gm/(rf*r0))*x*c1
 dg   = 1 - (gm/rf)*(x^2)*c2
 velf = df*pos + dg*vel
+
+# check state against spice
+statef = SPICE.prop2b(gm, [pos..., vel...], dt)
+posf2 = statef[1:3]
+velf2 = statef[4:6]
+
+posf - posf2
+velf - velf2
 
 # compute the partials (Battin)
 C = gm*(x^2)*(gm*(x^3)*(3c5 - c4) - dt*c2)

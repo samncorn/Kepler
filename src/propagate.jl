@@ -5,7 +5,7 @@ function solve(pos0, vel0, dt, gm; max_iter = 20)
 end
 
 "Universal kepler solver."
-function propagate(pos, vel, dt, gm; max_iter::Int = 100_000, tol = 1e-15)
+function propagate(pos, vel, dt, gm; max_iter::Int = 100_000)
     if dt == 0
         return pos, vel
     end
@@ -22,22 +22,32 @@ function propagate(pos, vel, dt, gm; max_iter::Int = 100_000, tol = 1e-15)
 
     # x = kepler_guess(pos, vel, dt, gm)
     x = solve_kepler_universal_A42(pos, vel, gm, dt)
-    # x = solve_kepler_universal_lmm12(pos, vel, gm, dt)
+    # x = solve_kepler_universal_lmm12(pos, vel, gm, dt; max_iter = max_iter)
 
     # compute f and g functions
     _, c1, c2, c3 = stumpff(b*x^2)
-    f    = 1 - (gm/r0)*(x^2)*c2
+    # f    = 1 - (gm/r0)*(x^2)*c2
+    # g    = dt - gm*(x^3)*c3
+    # posf = f*pos + g*vel
+    # rf   = norm(posf)
+    # df   = -(gm/(rf*r0))*x*c1
+    # dg   = 1 - (gm/rf)*(x^2)*c2
+    # velf = df*pos + dg*vel
+
+    # more numerically precise? According to Rein + Tamayo WHFast paper
+    f    = -(gm/r0)*(x^2)*c2
     g    = dt - gm*(x^3)*c3
-    posf = f*pos + g*vel
+    posf = f*pos + g*vel + pos
+    
     rf   = norm(posf)
     df   = -(gm/(rf*r0))*x*c1
-    dg   = 1 - (gm/rf)*(x^2)*c2
-    velf = df*pos + dg*vel
+    dg   = -(gm/rf)*(x^2)*c2
+    velf = df*pos + dg*vel + vel
 
     return posf, velf
 end
 
-function propagate_with_partials(pos, vel, dt, gm; max_iter = 100_000, tol = 1e-15)
+function propagate_with_partials(pos, vel, dt, gm; max_iter = 100_000)
     if dt == 0
         return pos, vel, I3, I3, I3, I3
     end
@@ -54,7 +64,7 @@ function propagate_with_partials(pos, vel, dt, gm; max_iter = 100_000, tol = 1e-
     b  = 2gm/r0 - dot(vel, vel)
 
     x = solve_kepler_universal_A42(pos, vel, gm, dt)
-    # x = solve_kepler_universal_lmm12(pos, vel, gm, dt)
+    # x = solve_kepler_universal_lmm12(pos, vel, gm, dt; max_iter = max_iter)
 
     # compute f and g functions
     _, c1, c2, c3, c4, c5 = stumpff5(b*x^2)
@@ -181,7 +191,7 @@ function kepler_guess(pos, vel, dt, gm)
     return x0
 end
 
-function solve_kepler_universal_lmm12(pos, vel, gm, dt)
+function solve_kepler_universal_lmm12(pos, vel, gm, dt; max_iter = 1000, tol = 1e-15)
     # constants
     r0 = norm(pos)
     s0 = dot(pos, vel)
@@ -196,9 +206,10 @@ function solve_kepler_universal_lmm12(pos, vel, gm, dt)
 
     # better initial guesses
     xh = kepler_guess(pos, vel, dt, gm)
+    # xh = dt/r0
 
-    yh, rh = universal_kepler2(xh, b, r0, s0, gm)
-    yh = yh - dt
+    dth, rh = universal_kepler2(xh, b, r0, s0, gm)
+    yh = dth - dt
 
     # establish the bracket
     i = 0
@@ -206,50 +217,54 @@ function solve_kepler_universal_lmm12(pos, vel, gm, dt)
         i += 1
         if isinf(yh) || isnan(yh) #|| isnan(rh)
             xh = (xl + xh)/2
-            yh, rh = universal_kepler2(xh, b, r0, s0, gm)
-            yh = yh - dt
+            # xh += (yh + dt)/rh
+            dth, rh = universal_kepler2(xh, b, r0, s0, gm)
+            yh = dth - dt
             if xl == xh 
                 throw("dt exceeds the computable range of values")
             end
         elseif sign(yl) == sign(yh) && !isnan(rh)
             xl  = xh
-            # xh += (dt - yh)/rh
+            # xh += (dth)/rh
             xh *= 2
             yl  = yh
             rl  = rh
-            yh, rh = universal_kepler2(xh, b, r0, s0, gm)
-            yh  = yh - dt
+            dth, rh = universal_kepler2(xh, b, r0, s0, gm)
+            yh = dth - dt
         end
     end
 
     # we can now guaruntee a solution
     # TODO: utilize derivative based methods 
-    step = typemax(xh)
+    # initialize at the end of the bracket, just for to have these defined for termination condition
     x = xh
     y = yh
     i = 0
-    x1 = xl
-    x2 = xh
-    y1 = yl
-    y2 = yh
-    r1 = rl
-    r2 = rh
+
+    # safeguard against slow convergence by tracking iterations since either end of the bracket changed
+    hi = 0
+    li = 0
+    n_force = 4
+    # x1 = xl 
+    # x2 = xh
     # while abs(xh - xl) > tol && i < max_iter && step > tol
-    while abs(y) > tol && abs(xh - xl) > tol && i < max_iter 
+    xb = (xl + xh)/2
+    while abs(xh - xl) > tol && xb != xh && xb != xl && i < max_iter 
         i += 1
-        # xb = 0.5(xl + xh)
-        # x2 = Kepler.lmm12_step(xl, xh, yl, yh, rl, rh)
-
-        # step = abs(xb - x)
-
-        # y, r = Kepler.universal_kepler2(x2, b, r0, s0, gm)
-        # y -= dt
-        x = lmm12_step(x1, x2, y1, y2, r1, r2)
-        if x < xl || x > xh 
-            x = 0.5*(xh + xl)
+        if hi >= n_force || li >= n_force   
+            # check how the brackets are progressing
+            # if one hasnt changed in enough iterations, force a bisection step
+            x = (xh + xl)/2
+            
+            # if a bisection returns a bracket end, we've converged
+            if x == xh || x == xl
+                break
+            end
+        else 
+            x = lmm12_step(xl, xh, yl, yh, rl, rh)
         end
-        y, r = Kepler.universal_kepler2(x, b, r0, s0, gm)
-        step = abs(x - x1)
+        
+        y, r = universal_kepler2(x, b, r0, s0, gm)
         y   -= dt
 
         if y == 0
@@ -258,27 +273,27 @@ function solve_kepler_universal_lmm12(pos, vel, gm, dt)
 
         # assign the bracket
         if sign(y) == sign(yl)
+            hi += 1
+            li = 0
             xl = x
             yl = y
             rl = r
         elseif sign(y) == sign(yh)
+            li += 1
+            hi = 0
             xh = x
             yh = y
             rh = r
-        elseif sign(y) == 0
-            break
+        else
+            throw("bad step, sign check doesn't proeprly evaluate")
         end
-
-        # shift the interpolants
-        x2 = x1
-        y2 = y1
-        r2 = r1
-        x1 = x
-        y1 = y
-        r1 = r
     end
+
+    if i == max_iter; throw("hit max iterations on kepler solve"); end
+
     return x
 end
+
 # function universal_kepler(y, l, k1, k2, k3)
 #     _, c1, c2, c3 = stumpff(l*y^2)
 #     L = y*(k1*c1 + y*(k2*c2 + y*k3*c3))
@@ -293,13 +308,16 @@ end
 function universal_kepler(x, b, r0, s0, gm)
     z  = b*x^2
     _, c1, c2, c3 = stumpff(z)
+    # _, c1, c2, c3, _, _ = stumpff_fold(z)
     dt = x*(r0*c1 + x*(s0*c2 + gm*x*c3))
+    # dt = x*r0*c1 + (x^2)*s0*c2 + gm*(x^3)*c3
     return dt
 end
 
 function universal_kepler2(x, b, r0, s0, gm)
     z  = b*x^2
     c0, c1, c2, c3 = stumpff(z)
+    # c0, c1, c2, c3, _, _ = stumpff_fold(z)
     dt = x*(r0*c1 + x*(s0*c2 + gm*x*c3))
     r  = r0*c0 + x*(s0*c1 + x*gm*c2)
     return dt, r
@@ -321,8 +339,21 @@ function stumpff(z::T) where {T}
     else
         # z very small. evaluate the series to 6 terms 
         # error is O(x^7) < 1e-21, well within floating point tolerances
-        c2 = (1-z*(1-z*(1-z*(1-z*(1-z*(1-z/182)/132)/90)/56)/30)/12)/2
-        c3 = (1-z*(1-z*(1-z*(1-z*(1-z*(1-z/210)/156)/110)/72)/42)/20)/6
+        a1::T = 1/82
+        a2::T = 1/132
+        a3::T = 1/90
+        a4::T = 1/56
+        a5::T = 1/30
+        a6::T = 1/12
+        b1::T = 1/210
+        b2::T = 1/156
+        b3::T = 1/110
+        b4::T = 1/72
+        b5::T = 1/42
+        b6::T = 1/20
+        b7::T = 1/6
+        c2 = (1-z*(1-z*(1-z*(1-z*(1-z*(1-z*a1)*a2)*a3)*a4)*a5)*a6)/2
+        c3 = (1-z*(1-z*(1-z*(1-z*(1-z*(1-z*b1)*b2)*b3)*b4)*b5)*b6)*b7
         c0 = 1 - z*c2
         c1 = 1 - z*c3
         return c0, c1, c2, c3
@@ -349,8 +380,6 @@ function stumpff5(z)
     else
         # z very small. evaluate the series to 6 terms 
         # error is O(x^7) < 1e-21, well within floating point tolerances
-        # c2 = (1-z*(1-z*(1-z*(1-z*(1-z*(1-z/182)/132)/90)/56)/30)/12)/2
-        # c3 = (1-z*(1-z*(1-z*(1-z*(1-z*(1-z/210)/156)/110)/72)/42)/20)/6
         c4 = stumpff_continued(4, z)
         c5 = stumpff_continued(5, z)
         c2 = 1/2 - z*c4
@@ -362,6 +391,33 @@ function stumpff5(z)
     end
 end
 
+function stumpff_fold(z)
+    n  = 0
+    zn = z
+    while abs(zn) > 0.1
+        zn /= 4
+        n  += 1
+    end
+    # c2 = (1-zn*(1-zn*(1-zn*(1-zn*(1-zn*(1-zn*a1)*a2)*a3)*a4)*a5)*a6)/2
+    # c3 = (1-zn*(1-zn*(1-zn*(1-zn*(1-zn*(1-zn*b1)*b2)*b3)*b4)*b5)*b6)*b7
+    c5 = stumpff_continued(5, zn)
+    c4 = stumpff_continued(4, zn)
+    c3 = 1/6 - zn*c5
+    c2 = 1/2 - zn*c4
+    c1 = 1 - zn*c3
+    while n > 0
+        zn *= 4
+        c5  = (c5 + c4 + c3*c2)/16
+        c4  = c3*(1 + c1)/8
+        c3  = 1/6 - zn*c5
+        c2  = 1/2 - zn*c4
+        c1  = 1 - zn*c3
+        n  -= 1
+    end
+    c0 = 1 - zn*c2
+    return c0, c1, c2, c3, c4, c5
+end
+
 """ evaluate the ith stumpff function as a continued fraction. Uses a fixed number of terms, so should be restricted to the regime near 0 (z < 1e-3 for double precision).
 """
 function stumpff_continued(i, z)
@@ -369,7 +425,7 @@ function stumpff_continued(i, z)
     c = one(z)
     for k in n:-1:1
         # c -= z/((i + 2k)*(i + k))
-        c = 1 - c*z/((i + 2k)*(i + k))
+        c = 1 - z/((i + 2k)*(i + k))
     end
     return c*factorial(i)
 end
