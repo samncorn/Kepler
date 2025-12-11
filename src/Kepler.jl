@@ -12,6 +12,15 @@ include("stumpff.jl")
 include("propagate.jl")
 include("Lambert.jl")
 
+# dot(v1, v2) = sum(v1 .* v2)
+# norm(v) = sqrt(dot(v, v))
+# cross(v1::SVector{3, T}, v2::SVector{3, T}) where {T} = T(
+#     v1[2]*v2[3] - v1[3]*v2[2],
+#     v1[3]*v2[1] - v1[1]*v2[3],
+#     v1[1]*v2[2] - v1[2]*v2[1],
+#     )
+# cross(v1, v2) = cross(SVector{3}(v1), SVector{3}(v2))
+
 const I3 = SMatrix{3, 3}((
     1.0, 0.0, 0.0,
     0.0, 1.0, 0.0,

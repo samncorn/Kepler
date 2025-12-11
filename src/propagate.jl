@@ -15,36 +15,45 @@ function propagate(pos, vel, dt, gm; max_iter::Int = 100_000)
         return posf, -velf
     end
 
+    DU = norm(pos)*sign(gm)
+    TU = sqrt(DU^3/gm)
+
+    pos /= DU
+    vel /= DU/TU
+    dt  /= TU
+
     # constants
-    r0 = norm(pos)
-    s0 = dot(pos, vel)
-    b  = 2gm/r0 - dot(vel, vel)
+    # r0 = norm(pos)
+    # s0 = dot(vel, pos)
+    # b  = 2gm/r0 - dot(vel, vel)
+    b = 2 - dot(vel, vel)
 
     # x = kepler_guess(pos, vel, dt, gm)
-    x = solve_kepler_universal_A42(pos, vel, gm, dt)
+    # x = solve_kepler_universal_A42(pos, vel, gm, dt)
+    x = solve_kepler_universal_A42_canonical(pos, vel, dt)
     # x = solve_kepler_universal_lmm12(pos, vel, gm, dt; max_iter = max_iter)
 
     # compute f and g functions
     _, c1, c2, c3 = stumpff(b*x^2)
-    # f    = 1 - (gm/r0)*(x^2)*c2
-    # g    = dt - gm*(x^3)*c3
-    # posf = f*pos + g*vel
-    # rf   = norm(posf)
-    # df   = -(gm/(rf*r0))*x*c1
-    # dg   = 1 - (gm/rf)*(x^2)*c2
-    # velf = df*pos + dg*vel
 
     # more numerically precise? According to Rein + Tamayo WHFast paper
-    f    = -(gm/r0)*(x^2)*c2
-    g    = dt - gm*(x^3)*c3
+    # f    = -(gm/r0)*(x^2)*c2
+    # g    = dt - gm*(x^3)*c3
+    # posf = f*pos + g*vel + pos
+    f = -c2*x^2
+    g = dt - c3*x^3
     posf = f*pos + g*vel + pos
     
-    rf   = norm(posf)
-    df   = -(gm/(rf*r0))*x*c1
-    dg   = -(gm/rf)*(x^2)*c2
+    # rf   = norm(posf)
+    # df   = -(gm/(rf*r0))*x*c1
+    # dg   = -(gm/rf)*(x^2)*c2
+    # velf = df*pos + dg*vel + vel
+    rf = norm(posf)
+    df = -x*c1/rf
+    dg = -(c2/rf)*x^2
     velf = df*pos + dg*vel + vel
 
-    return posf, velf
+    return posf*DU, velf*DU/TU
 end
 
 function propagate_with_partials(pos, vel, dt, gm; max_iter = 100_000)
@@ -81,31 +90,8 @@ function propagate_with_partials(pos, vel, dt, gm; max_iter = 100_000)
     delr = posf - pos
     delv = velf - vel
 
-    # try the Der 1998 formulation
-    v0 = norm(vel)
-    a  = b/gm
-    U1 = sqrt(gm)*x*c1
-    U2 = gm*(x^2)*c2
-    U3 = sqrt(gm)*(x^3)*gm*c3
-    M1 = pos*transpose(pos)/r0^2
-    M2 = pos*transpose(vel)/(r0*v0)
-    M3 = vel*transpose(pos)/(r0*v0)
-    M4 = vel*transpose(vel)/v0^2
-
-    k11  = abs(a) < 1e-6 ? 0.0 : (1/(a*rf*r0^2))*(3U1*U3 + (a*r0 - 2)*U2^2) + (U1^2)/rf + U2/r0
-    k12  = v0*U1*U2/(rf*sqrt(gm))
-    k13  = abs(a) < 1e-6 ? 0.0 : v0/(a*rf*sqrt(gm)*r0^2)*(r0*U1*U2 + 2*s0/sqrt(gm)*U2^2 + 3*U2*U3 - 3rf*U3 + a*(r0^2)*U1*U2)
-    k14  = (v0^2)*(U2^2)/(rf*gm)
-    dxdx = f*I3 + k11*M1 + k12*M2 + k13*M3 + k14*M4
-
-    k21  = r0*U1*U2/(rf*sqrt(gm))
-    k22  = abs(a) < 1e-6 ? 0.0 : (v0/(a*rf*gm))*(3U1*U3 + (a*r0 - 2)*U2^2)
-    k23  = r0*v0*(U2^2)/(rf*gm)
-    k24  = abs(a) < 1e-6 ? 0.0 : ((v0^2)/(a*rf*gm*sqrt(gm)))*(r0*U1*U2 + 2s0/sqrt(gm)*U2^2 + 3U2*U3 - 3rf*U3)
-    dxdv = g*I3 + k21*M1 + k22*M2 + k23*M3 + k24*M4
-
-    # dxdx = f*I3 + (rf/gm)*delv*transpose(delv) + (1/r0^3)*(r0*(1-f)*posf*transpose(pos) + C*velf*transpose(pos))
-    # dxdv = g*I3 + (r0/gm)*(1-f)*(delr*transpose(vel) - delv*transpose(pos)) + (C/gm)*velf*transpose(vel)
+    dxdx = f*I3 + (rf/gm)*delv*transpose(delv) + (1/r0^3)*(r0*(1-f)*posf*transpose(pos) + C*velf*transpose(pos))
+    dxdv = g*I3 + (r0/gm)*(1-f)*(delr*transpose(vel) - delv*transpose(pos)) + (C/gm)*velf*transpose(vel)
     dvdx = (
         - (1/r0^2)*delv*transpose(pos) 
         - (1/rf^2)*posf*transpose(delv) 
@@ -115,6 +101,50 @@ function propagate_with_partials(pos, vel, dt, gm; max_iter = 100_000)
     dvdv = (r0/gm)*delv*transpose(delv) + (1/rf^3)*(r0*(1-f)*posf*transpose(pos) - C*posf*transpose(vel)) + dg*I3
 
     return posf, velf, dxdx, dxdv, dvdx, dvdv
+end
+
+function solve_kepler_universal_A42_canonical(pos, vel, dt)
+    # constants
+    s0 = dot(vel, pos)
+    b  = 2 - dot(vel, vel)
+
+    # better initial guesses
+    xh = kepler_guess_canonical(pos, vel, dt)
+    # xh = dt
+    z = b*xh^2
+    c0, c1, c2, c3 = stumpff(z)
+    yh = xh*(c1 + xh*(s0*c2 + xh*c3))
+    rh = c0 + xh*(s0*c1 + xh*c2)
+    yh -= dt
+
+    xl = zero(xh)
+    # xl = 0.0
+    yl = -dt
+    rl = one(rh)
+
+    # establish the bracket
+    i = 0
+    while i < 1000 && (sign(yl) == sign(yh) || isinf(yh) || isnan(yh))
+        i += 1
+        if isinf(yh) || isnan(yh) #|| isnan(rh)
+            xh = (xl + xh)/2
+            yh, rh = universal_kepler2_canonical(xh, b, s0)
+            yh -= dt
+            if xl == xh 
+                throw("dt exceeds the computable range of values")
+            end
+        elseif sign(yl) == sign(yh) && !isnan(rh)
+            xl  = xh
+            # xh += (dt - yh)/rh
+            xh *= 2
+            yl  = yh
+            rl  = rh
+            yh, rh = universal_kepler2_canonical(xh, b, s0)
+            yh -= dt
+        end
+    end
+
+    return find_zero(_x -> universal_kepler_canonical(_x, b, s0) - dt, (xl, xh), A42())
 end
 
 function solve_kepler_universal_A42(pos, vel, gm, dt)
@@ -184,6 +214,30 @@ function kepler_guess(pos, vel, dt, gm)
     elseif gm*b > 0
         # elliptic
         dt/r0
+    else 
+        throw((gm = gm, b = b))
+        # dt/r0
+    end
+    return x0
+end
+
+function kepler_guess_canonical(pos, vel, dt)
+    s0 = dot(pos, vel)
+    b  = 2 - dot(vel, vel)
+    x0 = if abs(b) < 1e-6
+        # parabolic (Vallado)
+        h = cross(pos, vel)
+        p = dot(h, h)
+        s = acot(3*sqrt(1/p^3)*dt)/2
+        w = atan(cbrt(tan(s)))
+        sqrt(p)*2*cot(2w)
+    elseif b < 0
+        # hyperbolic (Vallado)
+        a = 1/b
+        abs(sqrt(-a)*log(-2dt/(a*(s0+sqrt(-a)*(1 - 1/a)))))
+    elseif b > 0
+        # elliptic
+        dt
     else 
         throw((gm = gm, b = b))
         # dt/r0
@@ -314,6 +368,13 @@ function universal_kepler(x, b, r0, s0, gm)
     return dt
 end
 
+function universal_kepler_canonical(x, b, s0)
+    z  = b*x^2
+    _, c1, c2, c3 = stumpff(z)
+    dt = x*(c1 + x*(s0*c2 + x*c3))
+    return dt
+end
+
 function universal_kepler2(x, b, r0, s0, gm)
     z  = b*x^2
     c0, c1, c2, c3 = stumpff(z)
@@ -323,18 +384,45 @@ function universal_kepler2(x, b, r0, s0, gm)
     return dt, r
 end
 
+
+function universal_kepler2_canonical(x, b, s0)
+    z  = b*x^2
+    c0, c1, c2, c3 = stumpff(z)
+    dt = x*(c1 + x*(s0*c2 + x*c3))
+    r  = c0 + x*(s0*c1 + x*c2)
+    return dt, r
+end
+
 function stumpff(z::T) where {T}
     if z > 1e-3
-        c0 = cos(sqrt(z))
-        c1 = sin(sqrt(z))/sqrt(z)
-        c2 = (1 - c0)/z
+        sin2 = sin(sqrt(z)/2)
+        cos2 = cos(sqrt(z)/2)
+
+        # c0 = cos(sqrt(z))
+        # c1 = sin(sqrt(z))/sqrt(z)
+        # c2 = (1 - c0)/z
+        # c3 = (1 - c1)/z
+
+        c1 = 2sin2*cos2/sqrt(z)
+        c2 = 2sin2^2/z
+        c0 = 1 - z*c2
         c3 = (1 - c1)/z
+
         return c0, c1, c2, c3
     elseif z < -1e-3
-        c0 = cosh(sqrt(-z))
-        c1 = sinh(sqrt(-z))/sqrt(-z)
-        c2 = (1 - c0)/z
+        sin2 = sinh(sqrt(-z)/2)
+        cos2 = cosh(sqrt(-z)/2)
+
+        # c0 = cosh(sqrt(-z))
+        # c1 = sinh(sqrt(-z))/sqrt(-z)
+        # c2 = (1 - c0)/z
+        # c3 = (1 - c1)/z
+
+        c1 = 2sin2*cos2/sqrt(-z)
+        c2 = -2sin2^2/z
+        c0 = 1 - z*c2
         c3 = (1 - c1)/z
+
         return c0, c1, c2, c3
     else
         # z very small. evaluate the series to 6 terms 

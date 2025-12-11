@@ -18,15 +18,14 @@ using Profile
 # global_logger(debug_logger)
 
 # test from vallado
-T = Float64
-pos = T.([1131.340, -2282.343, 6672.423])
-vel = T.([-5.64305, 4.30333, 2.42879])
-dt  = T(40.0*60.0)
-gm  = T(398600.4415) # per vallado
+pos = [1131.340, -2282.343, 6672.423]
+vel = [-5.64305, 4.30333, 2.42879]
+dt  = 40.0*60.0
+gm  = 398600.4415 # per vallado
 
 # case that fails in the wild [FIXED]
-# pos = [1.25, 0.0, 0.0]
-# vel = [-0.021759125285088412, -0.015386025041773686, -0.0]
+# pos = SA[1.25, 0.0, 0.0]
+# vel = SA[-0.021759125285088412, -0.015386025041773686, -0.0]
 # dt  = 4.0
 # gm  = 0.0002959122082326087
 
@@ -199,10 +198,10 @@ gm  = T(398600.4415) # per vallado
 # dt = 1.178212999831885
 # gm = 0.0002959122082326087
 
-pos = SA[2.728581306615723, 6.897075632745469, 4.016242824109237]
-vel = SA[-0.7220864368853009, -1.6881569254954192, -0.9597770393526094]
-dt  = 7.110738782983408
-gm  = 0.0002959122082326087
+# pos = SA[2.728581306615723, 6.897075632745469, 4.016242824109237]
+# vel = SA[-0.7220864368853009, -1.6881569254954192, -0.9597770393526094]
+# dt  = 7.110738782983408
+# gm  = 0.0002959122082326087
 
 # pos = SA[-0.5176879872408338, -0.6184946711549144, -0.2569123206788124]
 # vel = SA[0.19856961982026536, 0.3207347158719085, 0.16775903946217685]
@@ -223,18 +222,29 @@ velf2 = statef[4:6]
 posf - posf2
 velf - velf2
 
+# check energy anbd angular momentum
+norm(cross(pos, vel)) - norm(cross(posf, velf))
+norm(cross(pos, vel)) - norm(cross(posf2, velf2))
+
+E0 = -gm/norm(pos)   + dot(vel, vel)/2
+E1 = -gm/norm(posf)  + dot(velf, velf)/2
+E2 = -gm/norm(posf2) + dot(velf2, velf2)/2
+
+log10(abs((E1 - E0)/E0))
+log10(abs((E2 - E0)/E0))
+
 # check partials
 dxdx_auto = ForwardDiff.jacobian(x -> Kepler.propagate(x, vel, dt, gm)[1], pos)
-dxdx .- dxdx_auto
+maximum(abs.(dxdx .- dxdx_auto))
 
 dxdv_auto = ForwardDiff.jacobian(x -> Kepler.propagate(pos, x, dt, gm)[1], vel)
-dxdv .- dxdv_auto
+maximum(abs.(dxdv .- dxdv_auto))
 
 dvdx_auto = ForwardDiff.jacobian(x -> Kepler.propagate(x, vel, dt, gm)[2], pos)
-dvdx .- dvdx_auto
+maximum(abs.(dvdx .- dvdx_auto))
 
 dvdv_auto = ForwardDiff.jacobian(x -> Kepler.propagate(pos, x, dt, gm)[2], vel)
-dvdv .- dvdv_auto
+maximum(abs.(dvdv .- dvdv_auto))
 
 # check orbital elements
 q, e, i, Om, w, tp = Kepler.cometary(pos, vel, dt, gm)
