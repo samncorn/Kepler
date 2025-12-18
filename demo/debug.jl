@@ -18,8 +18,8 @@ using Profile
 # global_logger(debug_logger)
 
 # test from vallado
-pos = [1131.340, -2282.343, 6672.423]
-vel = [-5.64305, 4.30333, 2.42879]
+pos = SA[1131.340, -2282.343, 6672.423]
+vel = SA[-5.64305, 4.30333, 2.42879]
 dt  = 40.0*60.0
 gm  = 398600.4415 # per vallado
 
@@ -210,17 +210,18 @@ gm  = 398600.4415 # per vallado
 
 # MAKE SURE STATIC VECTORS ARE USED
 @btime Kepler.propagate($pos, $vel, $dt, $gm)
+@btime Kepler.propagate_with_partials($pos, $vel, $dt, $gm)
 
-# posf, velf, dxdx, dxdv, dvdx, dvdv = Kepler.propagate_with_partials(pos, vel, dt, gm)
-posf, velf = Kepler.propagate(pos, vel, dt, gm)
+posf, velf, dxdx, dxdv, dvdx, dvdv = Kepler.propagate_with_partials(pos, vel, dt, gm)
+# posf, velf = Kepler.propagate(pos, vel, dt, gm)
 
 # check state against spice
 statef = SPICE.prop2b(gm, [pos..., vel...], dt)
 posf2 = statef[1:3]
 velf2 = statef[4:6]
 
-posf - posf2
-velf - velf2
+(posf - posf2) ./ posf
+(velf - velf2) ./ velf
 
 # check energy anbd angular momentum
 norm(cross(pos, vel)) - norm(cross(posf, velf))
@@ -235,16 +236,16 @@ log10(abs((E2 - E0)/E0))
 
 # check partials
 dxdx_auto = ForwardDiff.jacobian(x -> Kepler.propagate(x, vel, dt, gm)[1], pos)
-maximum(abs.(dxdx .- dxdx_auto))
+maximum(abs.(dxdx .- dxdx_auto) ./ dxdx) 
 
 dxdv_auto = ForwardDiff.jacobian(x -> Kepler.propagate(pos, x, dt, gm)[1], vel)
-maximum(abs.(dxdv .- dxdv_auto))
+maximum(abs.(dxdv .- dxdv_auto) ./ dxdv)
 
 dvdx_auto = ForwardDiff.jacobian(x -> Kepler.propagate(x, vel, dt, gm)[2], pos)
-maximum(abs.(dvdx .- dvdx_auto))
+maximum(abs.(dvdx .- dvdx_auto) ./ dvdx)
 
 dvdv_auto = ForwardDiff.jacobian(x -> Kepler.propagate(pos, x, dt, gm)[2], vel)
-maximum(abs.(dvdv .- dvdv_auto))
+maximum(abs.(dvdv .- dvdv_auto) ./ dvdv)
 
 # check orbital elements
 q, e, i, Om, w, tp = Kepler.cometary(pos, vel, dt, gm)

@@ -32,8 +32,8 @@ gm = 0.0172^2
 
 function try_prop(pos, vel, dt, gm)
     try
-        # return Kepler.propagate(pos, vel, dt, gm)
-        statef = SPICE.prop2b(gm, [pos..., vel...], dt)
+        return Kepler.propagate(pos, vel, dt, gm)
+        # statef = SPICE.prop2b(gm, [pos..., vel...], dt)
         return statef[1:3], statef[4:6]
     catch _
         throw((pos = pos, vel = vel, dt = dt, gm = gm))

@@ -35,6 +35,7 @@ function propagate(pos, vel, dt, gm; max_iter::Int = 100_000)
 
     # compute f and g functions
     _, c1, c2, c3 = stumpff(b*x^2)
+    # _, c1, c2, c3, _, _ = stumpff_fold(b*x^2)
 
     # more numerically precise? According to Rein + Tamayo WHFast paper
     # f    = -(gm/r0)*(x^2)*c2
@@ -67,41 +68,84 @@ function propagate_with_partials(pos, vel, dt, gm; max_iter = 100_000)
         return posf, -velf, dxdx, -dxdv, -dvdx, dvdv
     end
 
-    # constants
-    r0 = norm(pos)
-    s0 = dot(pos, vel)
-    b  = 2gm/r0 - dot(vel, vel)
+        DU = norm(pos)*sign(gm)
+    TU = sqrt(DU^3/gm)
 
-    x = solve_kepler_universal_A42(pos, vel, gm, dt)
+    pos /= DU
+    vel /= DU/TU
+    dt  /= TU
+
+    # constants
+    # r0 = norm(pos)
+    # s0 = dot(vel, pos)
+    # b  = 2gm/r0 - dot(vel, vel)
+    b = 2 - dot(vel, vel)
+
+    # x = kepler_guess(pos, vel, dt, gm)
+    # x = solve_kepler_universal_A42(pos, vel, gm, dt)
+    x = solve_kepler_universal_A42_canonical(pos, vel, dt)
     # x = solve_kepler_universal_lmm12(pos, vel, gm, dt; max_iter = max_iter)
 
     # compute f and g functions
+    # _, c1, c2, c3 = stumpff(b*x^2)
     _, c1, c2, c3, c4, c5 = stumpff5(b*x^2)
-    f    = 1 - (gm/r0)*(x^2)*c2
-    g    = dt - gm*(x^3)*c3
-    posf = f*pos + g*vel
-    rf   = norm(posf)
-    df   = -(gm/(rf*r0))*x*c1
-    dg   = 1 - (gm/rf)*(x^2)*c2
-    velf = df*pos + dg*vel
+
+    # more numerically precise? According to Rein + Tamayo WHFast paper
+    # f    = -(gm/r0)*(x^2)*c2
+    # g    = dt - gm*(x^3)*c3
+    # posf = f*pos + g*vel + pos
+    f = -c2*x^2
+    g = dt - c3*x^3
+    posf = f*pos + g*vel + pos
+    
+    # rf   = norm(posf)
+    # df   = -(gm/(rf*r0))*x*c1
+    # dg   = -(gm/rf)*(x^2)*c2
+    # velf = df*pos + dg*vel + vel
+    rf = norm(posf)
+    df = -x*c1/rf
+    dg = -(c2/rf)*x^2
+    velf = df*pos + dg*vel + vel
 
     # compute the partials (Battin)
-    C = gm*(x^2)*(gm*(x^3)*(3c5 - c4) - dt*c2)
+    C = (x^2)*((x^3)*(3c5 - c4) - dt*c2)
     delr = posf - pos
     delv = velf - vel
 
-    dxdx = f*I3 + (rf/gm)*delv*transpose(delv) + (1/r0^3)*(r0*(1-f)*posf*transpose(pos) + C*velf*transpose(pos))
-    dxdv = g*I3 + (r0/gm)*(1-f)*(delr*transpose(vel) - delv*transpose(pos)) + (C/gm)*velf*transpose(vel)
-    dvdx = (
-        - (1/r0^2)*delv*transpose(pos) 
-        - (1/rf^2)*posf*transpose(delv) 
-        + df*(I3 - (1/rf^2)*posf*transpose(posf) + (1/(rf*gm))*(posf*transpose(velf) - velf*transpose(posf))*posf*transpose(delv))
-        - gm*C/(rf*r0)^3*posf*transpose(pos)
-        )
-    dvdv = (r0/gm)*delv*transpose(delv) + (1/rf^3)*(r0*(1-f)*posf*transpose(pos) - C*posf*transpose(vel)) + dg*I3
+    # dxdx = f*I3 + (rf/gm)*delv*transpose(delv) + (1/r0^3)*(r0*(1-f)*posf*transpose(pos) + C*velf*transpose(pos))
+    # units of DU/DU
+    dxdx = (1 + f)*I3 + rf*delv*transpose(delv) + (-f)*posf*transpose(pos) + C*velf*transpose(pos)
 
-    return posf, velf, dxdx, dxdv, dvdx, dvdv
+    # dxdv = g*I3 + (r0/gm)*(1-f)*(delr*transpose(vel) - delv*transpose(pos)) + (C/gm)*velf*transpose(vel)
+    # units of DU/VU = DU/(DU/TU) = TU
+    dxdv = g*I3 + (-f)*(delr*transpose(vel) - delv*transpose(pos)) + C*velf*transpose(vel)
+
+    # r0 = 1.0
+    # dvdx = (
+    #     - (1/r0^2)*delv*transpose(pos) 
+    #     - (1/rf^2)*posf*transpose(delv) 
+    #     + df*(I3 - (1/rf^2)*posf*transpose(posf) + (1/(rf*gm))*(posf*transpose(velf) - velf*transpose(posf))*posf*transpose(delv))
+    #     - gm*C/(rf*r0)^3*posf*transpose(pos)
+    #     )
+    # Units of 1/TU
+    dvdx = (
+        - delv*transpose(pos) 
+        - (1/rf^2)*posf*transpose(delv) 
+        + df*(I3 - (1/rf^2)*posf*transpose(posf) + (1/rf)*(posf*transpose(velf) - velf*transpose(posf))*posf*transpose(delv))
+        - C/(rf)^3*posf*transpose(pos)
+        )
+
+    # Units of VU/VU = 1
+    # dvdv = (r0/gm)*delv*transpose(delv) + (1/rf^3)*(r0*(1-f)*posf*transpose(pos) - C*posf*transpose(vel)) + dg*I3
+    dvdv = delv*transpose(delv) + (1/rf^3)*((-f)*posf*transpose(pos) - C*posf*transpose(vel)) + (1 + dg)*I3
+
+    return posf*DU, velf*DU/TU, dxdx, dxdv*TU, dvdx/TU, dvdv
 end
+
+# function comp_sum!(init, v)
+#     c = zero(init)
+
+# end
 
 function solve_kepler_universal_A42_canonical(pos, vel, dt)
     # constants
@@ -111,10 +155,8 @@ function solve_kepler_universal_A42_canonical(pos, vel, dt)
     # better initial guesses
     xh = kepler_guess_canonical(pos, vel, dt)
     # xh = dt
-    z = b*xh^2
-    c0, c1, c2, c3 = stumpff(z)
-    yh = xh*(c1 + xh*(s0*c2 + xh*c3))
-    rh = c0 + xh*(s0*c1 + xh*c2)
+
+    yh, rh = universal_kepler2_canonical(xh, b, s0)
     yh -= dt
 
     xl = zero(xh)
@@ -388,6 +430,7 @@ end
 function universal_kepler2_canonical(x, b, s0)
     z  = b*x^2
     c0, c1, c2, c3 = stumpff(z)
+    # c0, c1, c2, c3, _, _ = stumpff_fold(z)
     dt = x*(c1 + x*(s0*c2 + x*c3))
     r  = c0 + x*(s0*c1 + x*c2)
     return dt, r
@@ -482,7 +525,7 @@ end
 function stumpff_fold(z)
     n  = 0
     zn = z
-    while abs(zn) > 0.1
+    while abs(zn) > 0.001
         zn /= 4
         n  += 1
     end
