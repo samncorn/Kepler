@@ -441,11 +441,6 @@ function stumpff(z::T) where {T}
         sin2 = sin(sqrt(z)/2)
         cos2 = cos(sqrt(z)/2)
 
-        # c0 = cos(sqrt(z))
-        # c1 = sin(sqrt(z))/sqrt(z)
-        # c2 = (1 - c0)/z
-        # c3 = (1 - c1)/z
-
         c1 = 2sin2*cos2/sqrt(z)
         c2 = 2sin2^2/z
         c0 = 1 - z*c2
@@ -456,11 +451,6 @@ function stumpff(z::T) where {T}
         sin2 = sinh(sqrt(-z)/2)
         cos2 = cosh(sqrt(-z)/2)
 
-        # c0 = cosh(sqrt(-z))
-        # c1 = sinh(sqrt(-z))/sqrt(-z)
-        # c2 = (1 - c0)/z
-        # c3 = (1 - c1)/z
-
         c1 = 2sin2*cos2/sqrt(-z)
         c2 = -2sin2^2/z
         c0 = 1 - z*c2
@@ -468,25 +458,34 @@ function stumpff(z::T) where {T}
 
         return c0, c1, c2, c3
     else
-        # z very small. evaluate the series to 6 terms 
-        # error is O(x^7) < 1e-21, well within floating point tolerances
-        a1::T = 1/82
-        a2::T = 1/132
-        a3::T = 1/90
-        a4::T = 1/56
-        a5::T = 1/30
-        a6::T = 1/12
-        b1::T = 1/210
-        b2::T = 1/156
-        b3::T = 1/110
-        b4::T = 1/72
-        b5::T = 1/42
-        b6::T = 1/20
-        b7::T = 1/6
-        c2 = (1-z*(1-z*(1-z*(1-z*(1-z*(1-z*a1)*a2)*a3)*a4)*a5)*a6)/2
-        c3 = (1-z*(1-z*(1-z*(1-z*(1-z*(1-z*b1)*b2)*b3)*b4)*b5)*b6)*b7
-        c0 = 1 - z*c2
+        # a1::T = 1/82
+        # a2::T = 1/132
+        # a3::T = 1/90
+        # a4::T = 1/56
+        # a5::T = 1/30
+        # a6::T = 1/12
+        # b1::T = 1/210
+        # b2::T = 1/156
+        # b3::T = 1/110
+        # b4::T = 1/72
+        # b5::T = 1/42
+        # b6::T = 1/20
+        # b7::T = 1/6
+        # c2 = (1-z*(1-z*(1-z*(1-z*(1-z*(1-z*a1)*a2)*a3)*a4)*a5)*a6)/2
+        # c3 = (1-z*(1-z*(1-z*(1-z*(1-z*(1-z*b1)*b2)*b3)*b4)*b5)*b6)*b7
+        c3 = 1/6 - z/120 
+        c2 = 1/2 - z/24
+        p  = -z/720 # start with the 6! terms
+        # i  = 6
+        # while i < 15
+        for i in 6:2:20
+            p  *= z/i
+            c2 += p
+            p  /= i + 1
+            c3 += p
+        end
         c1 = 1 - z*c3
+        c0 = 1 - z*c2
         return c0, c1, c2, c3
     end
 end
@@ -509,15 +508,22 @@ function stumpff5(z)
         c5 = (1/6 - c3)/z
         return c0, c1, c2, c3, c4, c5
     else
-        # z very small. evaluate the series to 6 terms 
-        # error is O(x^7) < 1e-21, well within floating point tolerances
-        c4 = stumpff_continued(4, z)
-        c5 = stumpff_continued(5, z)
+        c4 = 1/24  - z/720
+        c5 = 1/120 - z/5040
+        p  = -z/40320 # start with the 8! terms
+        i  = 8
+        # while i < 15
+        for i in 8:2:20
+            p  *= z/i
+            c4 += p
+            p  /= i + 1
+            c5 += p
+            i  += 2
+        end
         c2 = 1/2 - z*c4
         c3 = 1/6 - z*c5
         c0 = 1 - z*c2
         c1 = 1 - z*c3
-        
         return c0, c1, c2, c3, c4, c5
     end
 end

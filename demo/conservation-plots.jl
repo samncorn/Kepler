@@ -89,10 +89,10 @@ edt = Iterators.product(e, dt)
     hf = norm(cross(pos, vel))
     Ef = dot(vel, vel)/2 - gm/norm(pos)
 
-    M_h[i, j] = 2(hf - h0)/(hf + h0)
-    M_E[i, j] = 2(Ef - E0)/(Ef + E0)
-    # M_h[i, j] = hf - h0
-    # M_E[i, j] = Ef - E0
+    # M_h[i, j] = h0 > 1e-14 ? (hf - h0)/h0 : hf - h0
+    # M_E[i, j] = 2(Ef - E0)/(Ef + E0)
+    M_h[i, j] = hf - h0
+    M_E[i, j] = Ef - E0
 end
 
 M_h_sign = sign.(M_h)
@@ -122,5 +122,5 @@ Colorbar(f[2, 2][1, 2], hm4)
 f
 end
 
-save(joinpath(@__DIR__, "../plots/error-spice.png"), f)
-# save(joinpath(@__DIR__, "../plots/error.png"), f)
+# save(joinpath(@__DIR__, "../plots/error-spice.png"), f)
+save(joinpath(@__DIR__, "../plots/error.png"), f)
