@@ -458,32 +458,19 @@ function stumpff(z::T) where {T}
 
         return c0, c1, c2, c3
     else
-        # a1::T = 1/82
-        # a2::T = 1/132
-        # a3::T = 1/90
-        # a4::T = 1/56
-        # a5::T = 1/30
-        # a6::T = 1/12
-        # b1::T = 1/210
-        # b2::T = 1/156
-        # b3::T = 1/110
-        # b4::T = 1/72
-        # b5::T = 1/42
-        # b6::T = 1/20
-        # b7::T = 1/6
-        # c2 = (1-z*(1-z*(1-z*(1-z*(1-z*(1-z*a1)*a2)*a3)*a4)*a5)*a6)/2
-        # c3 = (1-z*(1-z*(1-z*(1-z*(1-z*(1-z*b1)*b2)*b3)*b4)*b5)*b6)*b7
-        c3 = 1/6 - z/120 
-        c2 = 1/2 - z/24
-        p  = -z/720 # start with the 6! terms
-        # i  = 6
-        # while i < 15
-        for i in 6:2:20
-            p  *= z/i
-            c2 += p
-            p  /= i + 1
-            c3 += p
-        end
+        # c3 = 1/6 - z/120 
+        # c2 = 1/2 - z/24
+        # p  = -z/120 # start with the 6! terms
+        # # i  = 6
+        # # while i < 15
+        # for i in 6:2:20
+        #     p  *= z/i
+        #     c2 += p
+        #     p  /= i + 1
+        #     c3 += p
+        # end
+        c3 = stumpff_series(3, z)
+        c2 = stumpff_series(2, z)
         c1 = 1 - z*c3
         c0 = 1 - z*c2
         return c0, c1, c2, c3
@@ -508,63 +495,48 @@ function stumpff5(z)
         c5 = (1/6 - c3)/z
         return c0, c1, c2, c3, c4, c5
     else
-        c4 = 1/24  - z/720
-        c5 = 1/120 - z/5040
-        p  = -z/40320 # start with the 8! terms
-        i  = 8
-        # while i < 15
-        for i in 8:2:20
-            p  *= z/i
-            c4 += p
-            p  /= i + 1
-            c5 += p
-            i  += 2
-        end
-        c2 = 1/2 - z*c4
+        # c4 = 1/24  - z/720
+        # c5 = 1/120 - z/5040
+        # p  = -z/40320 # start with the 8! terms
+        # # while i < 15
+        # for i in 8:2:20
+        #     p  *= z/i
+        #     c4 += p
+        #     p  /= i + 1
+        #     c5 += p
+        # end
+        c5 = stumpff_series(5, z)
+        c4 = stumpff_series(4, z)
         c3 = 1/6 - z*c5
-        c0 = 1 - z*c2
+        c2 = 1/2 - z*c4
         c1 = 1 - z*c3
+        c0 = 1 - z*c2
+        
         return c0, c1, c2, c3, c4, c5
     end
 end
 
-function stumpff_fold(z)
-    n  = 0
-    zn = z
-    while abs(zn) > 0.001
-        zn /= 4
-        n  += 1
+# z should not exceed |z| = 1e-3 
+function stumpff_series(i, z::T) where {T}
+    c = 1/factorial(i)
+    p = -z*c/((i + 2)*(i + 1))
+    c += p
+    for j in 1:4
+        p *= -z/((i + 2j)*(i + 2j - 1))
+        c += p
     end
-    # c2 = (1-zn*(1-zn*(1-zn*(1-zn*(1-zn*(1-zn*a1)*a2)*a3)*a4)*a5)*a6)/2
-    # c3 = (1-zn*(1-zn*(1-zn*(1-zn*(1-zn*(1-zn*b1)*b2)*b3)*b4)*b5)*b6)*b7
-    c5 = stumpff_continued(5, zn)
-    c4 = stumpff_continued(4, zn)
-    c3 = 1/6 - zn*c5
-    c2 = 1/2 - zn*c4
-    c1 = 1 - zn*c3
-    while n > 0
-        zn *= 4
-        c5  = (c5 + c4 + c3*c2)/16
-        c4  = c3*(1 + c1)/8
-        c3  = 1/6 - zn*c5
-        c2  = 1/2 - zn*c4
-        c1  = 1 - zn*c3
-        n  -= 1
-    end
-    c0 = 1 - zn*c2
-    return c0, c1, c2, c3, c4, c5
+    return c
 end
 
-""" evaluate the ith stumpff function as a continued fraction. Uses a fixed number of terms, so should be restricted to the regime near 0 (z < 1e-3 for double precision).
-"""
-function stumpff_continued(i, z)
-    n = 6
-    c = one(z)
-    for k in n:-1:1
-        # c -= z/((i + 2k)*(i + k))
-        c = 1 - z/((i + 2k)*(i + k))
+function stumpff_series(i, n, z)
+    c = 1/factorial(i)
+    p = -z*c/((i + 2)*(i + 1))
+    c += p
+    for j in 1:n
+        p *= -z/((i + 2j)*(i + 2j - 1))
+        c += p
     end
-    return c*factorial(i)
+    return c
 end
 
 # """ 
