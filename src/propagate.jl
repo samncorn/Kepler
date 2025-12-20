@@ -518,9 +518,8 @@ end
 
 # z should not exceed |z| = 1e-3 
 function stumpff_series(i, z::T) where {T}
-    c = 1/factorial(i)
-    p = -z*c/((i + 2)*(i + 1))
-    c += p
+    c = T(1/factorial(i))
+    p = c
     for j in 1:4
         p *= -z/((i + 2j)*(i + 2j - 1))
         c += p
