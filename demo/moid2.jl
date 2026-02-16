@@ -391,9 +391,12 @@ for (c, case) in enumerate(cases)
     println()
 end
 
-# 23 is VERY poorly behaved
+# 23 is VERY poorly behaved with least squares
 # c = 5
-for c in [5, 6, 7, 8]
+# for c in [5, 6, 7, 8]
+
+begin
+    c = 13
     case = cases[c]
     orbit1 = Kepler.CometaryOrbit(case.rp1, case.e1, deg2rad(case.i1), deg2rad(case.Om1), deg2rad(case.w1), 0.0, 0.0, gm)
     orbit2 = Kepler.CometaryOrbit(case.rp2, case.e2, deg2rad(case.i2), deg2rad(case.Om2), deg2rad(case.w2), 0.0, 0.0, gm)
@@ -476,11 +479,11 @@ for c in [5, 6, 7, 8]
     scatter!(ax, rad2deg(uf), rad2deg(vf); color = :red, marker = :star5, label = "final MOID")
     xlims!(ax, 0, 360)
     ylims!(ax, 0, 360)
-    ax.xticks = 0:30:360
-    ax.yticks = 0:30:360
+    ax.xticks = 0:60:360
+    ax.yticks = 0:60:360
     axislegend(ax; position = :lt)
-    # f
-    save("/Users/samuelcornwall/school/courses/AE498-pd/HW/completed/HW1_plots/$(case.tag).png", f)
+    f
+    # save("/Users/samuelcornwall/school/courses/AE498-pd/HW/completed/HW1_plots/$(case.tag).png", f)
     end
 end
 
