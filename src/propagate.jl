@@ -186,7 +186,9 @@ function solve_kepler_universal_A42_canonical(pos, vel, dt)
         end
     end
 
-    return find_zero(_x -> universal_kepler_canonical(_x, b, s0) - dt, (xl, xh), A42())
+    # return find_zero(_x -> universal_kepler_canonical(_x, b, s0) - dt, (xl, xh), A42())
+    # return chandrupatla_brent(_x -> universal_kepler_canonical(_x, b, s0) - dt, (xl, xh))
+    return inverse_quintic(_x -> universal_kepler2_canonical_offset(_x, b, s0, dt), (xl, xh))
 end
 
 function solve_kepler_universal_A42(pos, vel, gm, dt)
@@ -432,8 +434,13 @@ function universal_kepler2_canonical(x, b, s0)
     c0, c1, c2, c3 = stumpff(z)
     # c0, c1, c2, c3, _, _ = stumpff_fold(z)
     dt = x*(c1 + x*(s0*c2 + x*c3))
-    r  = c0 + x*(s0*c1 + x*c2)
+    r = c0 + x*(s0*c1 + x*c2)
     return dt, r
+end
+
+function universal_kepler2_canonical_offset(x, b, s0, dt)
+    t, r = universal_kepler2_canonical(x, b, s0)
+    return t - dt, r
 end
 
 function stumpff(z::T) where {T}
@@ -520,9 +527,14 @@ end
 function stumpff_series(i, z::T) where {T}
     c = T(1/factorial(i))
     p = c
-    for j in 1:4
+    c_prev = 2c
+    # for j in 1:4
+    j = 1
+    while c != c_prev
+        c_prev = c
         p *= -z/((i + 2j)*(i + 2j - 1))
         c += p
+        j += 1
     end
     return c
 end
