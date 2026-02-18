@@ -8,7 +8,7 @@ struct Ellipse{T, V}
 end
 
 
-function Ellipse(orbit::Orbit)
+function Ellipse(orbit::Cartesian)
     hvec = cross(orbit.position, orbit.velocity)
     evec = cross(orbit.velocity, hvec)/orbit.gm - normalize(orbit.position)
     p    = dot(hvec, hvec)/orbit.gm # semilatus rectum
@@ -18,7 +18,7 @@ function Ellipse(orbit::Orbit)
     return Ellipse(e, p, x, y)
 end
 
-function Ellipse(orbit::CometaryOrbit)
+function Ellipse(orbit::Cometary)
     p = orbit.q*(1.0 + orbit.e)
     # a = orbit.q/(1.0 - orbit.e)
     # p = a*(1.0 - orbit.e^2)
@@ -37,14 +37,133 @@ function radial_rate(ellipse, angle)
     return ellipse.p*ellipse.e*sin(angle)/(1.0 + ellipse.e*cos(angle))^2
 end
 
-norm2(x) = dot(x, x)
-
-""" convenience function to avoid type piracy on nothing
+""" method from Wisniowsky + Rickmann 2013. scans for near minima, then iteratively refines
 """
-struct EmptySink end
-Base.push!(::EmptySink, _) = nothing
-Base.getindex(::EmptySink, idx)  = EmptySink()
-Base.lastindex(::EmptySink) = EmptySink()
+function moid_scan(ellipse1::Ellipse, ellipse2::Ellipse; kwargs...)
+    # scanning pass, get initial guesses
+    _, u_min, v_min = moid_scan_meridional(ellipse1, ellipse2)
+
+    # run levenberg-marquardt on each guess, take the lowest
+    moid = Inf
+    vf   = Inf
+    uf   = Inf
+    _fdf = ((u, v),) -> dists_with_partials(u, ellipse1, v, ellipse2)
+    for (v, u) in zip(v_min, u_min)
+        if isinf(v) || isinf(u)
+            continue
+        end
+
+        (u, v), d, _ = least_squares(_fdf, SVector{2}(u, v); kwargs...)
+
+        if d < moid
+            moid = d
+            vf  = v
+            uf  = u
+        end
+    end
+
+    return sqrt(moid), uf, vf
+end
+
+function moid_scan(orbit1, orbit2; kwargs...)
+    return moid_scan(Ellipse(orbit1), Ellipse(orbit2), kwargs...)
+end
+
+# compute the distance between two point on orbits given a few of their paramters,
+# along with the partial derivatives w.r.t true anomaly
+# needs to return singular tuples for the least squares interface
+function dists_with_partials(u, ellipse1, v, ellipse2)
+    r1 = radius(ellipse1, u)
+    r2 = radius(ellipse2, v)
+
+    pos1 = r1*(cos(u)*ellipse1.x + sin(u)*ellipse1.y)
+    pos2 = r2*(cos(v)*ellipse2.x + sin(v)*ellipse2.y)
+
+    dr1 = radial_rate(ellipse1, u)
+    dr2 = radial_rate(ellipse2, v)
+
+    dx   = pos1 - pos2
+    H    = hcat(
+          dr1*pos1/r1 + r1*(-sin(u)*ellipse1.x + cos(u)*ellipse1.y),
+        -(dr2*pos2/r2 + r2*(-sin(v)*ellipse2.x + cos(v)*ellipse2.y))
+    )
+    return ((dx, -H),)
+end
+
+function moid_scan_meridional(ellipse1, ellipse2)
+    v_min = MVector{4}(Inf, Inf, Inf, Inf)
+    u_min = MVector{4}(Inf, Inf, Inf, Inf)
+    dmin  = MVector{4}(Inf, Inf, Inf, Inf)
+
+    # vlim1 = ellipse1.e < 1 
+
+    i    = 1
+    D1   = NaN
+    D2   = NaN
+    v1   = NaN
+    v2   = NaN
+    u1   = NaN
+    u2   = NaN
+    for v in 0:0.12:(2pi + 0.12)
+        # find the position of o2
+        r2   = radius(ellipse2, v)
+        pos2 = r2*(cos(v)*ellipse2.x + sin(v)*ellipse2.y)
+        
+        # get out of plane componet w.r.t o1
+        x2  = dot(pos2, ellipse1.x)
+        y2  = dot(pos2, ellipse1.y)
+        z22 = r2^2 - x2^2 - y2^2
+
+        # compute o1 radial distance for the same longitude
+        rho = sqrt(x2^2 + y2^2)
+        r1  = ellipse1.p/(1.0 + ellipse1.e*x2/rho)
+
+        # compute meriodional distance
+        D = sqrt(z22 + (rho - r1)^2)
+        u = mod(atan(y2, x2), 2pi)
+
+        # check for local min
+        if D1 > D2 < D
+            v_min[i] = v2
+            u_min[i] = u2
+            dmin[i]  = D2
+            i += 1
+        end
+
+        D1 = D2
+        D2 = D
+        v1 = v2
+        v2 = v
+        u1 = u2
+        u2 = u
+    end
+
+    if count(x -> !isinf(x), dmin) <= 1
+        v_min = MVector{4}(0.0, pi/2, pi, 3pi/2)
+        for (i, v) in enumerate(v_min)
+            # find the position of o2
+            r2   = radius(ellipse2, v)
+            pos2 = r2*(cos(v)*ellipse2.x + sin(v)*ellipse2.y)
+            
+            # get out of plane componet w.r.t o1
+            x2  = dot(pos2, ellipse1.x)
+            y2  = dot(pos2, ellipse1.y)
+            u_min[i] = mod(atan(y2, x2), 2pi)
+
+            z22 = r2^2 - x2^2 - y2^2
+
+            # compute o1 radial distance for the same longitude
+            rho = sqrt(x2^2 + y2^2)
+            r1  = ellipse1.p/(1.0 + ellipse1.e*x2/rho)
+
+            # compute meriodional distance
+            D = sqrt(z22 + (rho - r1)^2)
+            dmin[i] = D
+        end
+    end
+
+    return dmin, SVector{4}(u_min), SVector{4}(v_min)
+end
 
 """ 
 """
@@ -53,7 +172,6 @@ function moid_simplex(
     ellipse2::Kepler.Ellipse{T, V};
     tol1::T     = 1e-4,
     tol2::T     = 1e-8, 
-    tol_cond::T = 1e3,
     max_iter    = 100,
     ds::T       = 0.2,
     ) where {T, V}
@@ -191,161 +309,4 @@ function simplex_step!(f, points, vals; a = 1.0, y = 2.0, r = 0.5, s = 0.5)
         points[j] = xc + r*(x1 - xc)
         vals[j]   = f(points[j])
     end
-end
-
-""" method from Wisniowsky + Rickmann 2013. scans for near minima, then iteratively refines
-"""
-function moid_scan(
-    ellipse1::Ellipse{T, V}, 
-    ellipse2::Ellipse{T, V};
-    mu::T = 10.0, 
-    tol::T = 1e-8, 
-    max_iter = 100, 
-    mu_f::T = 5.0,
-    nu::T = 1e-2,
-    k::T  = 0.9,
-    ) where {T, V}
-    # scanning pass, get initial guesses
-    dmin, u_min, v_min = moid_scan_meridional(ellipse1, ellipse2)
-
-    # run levenberg-marquardt on each guess, take the lowest
-    moid = Inf
-    vf   = Inf
-    uf   = Inf
-    for (v, u) in zip(v_min, u_min)
-        if isinf(v) || isinf(u)
-            continue
-        end
-
-        dx, H = dx, H = dists_with_partials(u, ellipse1, v, ellipse2)
-        d   = dot(dx, dx)
-        Ht  = transpose(H)
-
-        i = 0
-        d0 = 2d
-        stepx = Inf
-        # k2 = k
-        while abs(d - d0) > tol && stepx > tol && i < max_iter
-            i += 1
-            (du, dv) = pinv(Ht*H + mu*I)*Ht*dx
-
-            dx, H = dists_with_partials(u + du, ellipse1, v + dv, ellipse2)
-            stepx = abs(norm(dx))
-            di  = dot(dx, dx)
-            Ht  = transpose(H)
-
-            if di >= d
-                mu *= mu_f
-            else
-                mu /= mu_f
-                nu /= mu_f
-            end
-
-            v  = mod(v + dv, 2pi)
-            u  = mod(u + du, 2pi)
-            d0  = d
-            d   = di
-        end
-
-        if d < moid
-            moid = d
-            vf  = v
-            uf  = u
-        end
-    end
-
-    return sqrt(moid), uf, vf
-end
-
-# compute the distance between two point on orbits given a few of their paramters,
-# along with the partial derivatives w.r.t true anomaly
-function dists_with_partials(u, ellipse1, v, ellipse2)
-    r1 = radius(ellipse1, u)
-    r2 = radius(ellipse2, v)
-
-    pos1 = r1*(cos(u)*ellipse1.x + sin(u)*ellipse1.y)
-    pos2 = r2*(cos(v)*ellipse2.x + sin(v)*ellipse2.y)
-
-    dr1 = radial_rate(ellipse1, u)
-    dr2 = radial_rate(ellipse2, v)
-
-    dx   = pos1 - pos2
-    H    = hcat(
-          dr1*pos1/r1 + r1*(-sin(u)*ellipse1.x + cos(u)*ellipse1.y),
-        -(dr2*pos2/r2 + r2*(-sin(v)*ellipse2.x + cos(v)*ellipse2.y))
-    )
-    return dx, -H
-end
-
-function moid_scan_meridional(ellipse1, ellipse2)
-    v_min = MVector{4}(Inf, Inf, Inf, Inf)
-    u_min = MVector{4}(Inf, Inf, Inf, Inf)
-    dmin  = MVector{4}(Inf, Inf, Inf, Inf)
-
-    i     = 1
-    D1    = NaN
-    D2    = NaN
-    v1   = NaN
-    v2   = NaN
-    u1   = NaN
-    u2   = NaN
-    for v in 0:0.12:(2pi + 0.12)
-        # find the position of o2
-        r2   = radius(ellipse2, v)
-        pos2 = r2*(cos(v)*ellipse2.x + sin(v)*ellipse2.y)
-        
-        # get out of plane componet w.r.t o1
-        x2  = dot(pos2, ellipse1.x)
-        y2  = dot(pos2, ellipse1.y)
-        z22 = r2^2 - x2^2 - y2^2
-
-        # compute o1 radial distance for the same longitude
-        rho = sqrt(x2^2 + y2^2)
-        r1  = ellipse1.p/(1.0 + ellipse1.e*x2/rho)
-
-        # compute meriodional distance
-        D = sqrt(z22 + (rho - r1)^2)
-        u = mod(atan(y2, x2), 2pi)
-
-        # check for local min
-        if D1 > D2 < D
-            v_min[i] = v2
-            u_min[i] = u2
-            dmin[i]  = D2
-            i += 1
-        end
-
-        D1 = D2
-        D2 = D
-        v1 = v2
-        v2 = v
-        u1 = u2
-        u2 = u
-    end
-
-    if count(x -> !isinf(x), dmin) <= 1
-        v_min = MVector{4}(0.0, pi/2, pi, 3pi/2)
-        for (i, v) in enumerate(v_min)
-            # find the position of o2
-            r2   = radius(ellipse2, v)
-            pos2 = r2*(cos(v)*ellipse2.x + sin(v)*ellipse2.y)
-            
-            # get out of plane componet w.r.t o1
-            x2  = dot(pos2, ellipse1.x)
-            y2  = dot(pos2, ellipse1.y)
-            u_min[i] = mod(atan(y2, x2), 2pi)
-
-            z22 = r2^2 - x2^2 - y2^2
-
-            # compute o1 radial distance for the same longitude
-            rho = sqrt(x2^2 + y2^2)
-            r1  = ellipse1.p/(1.0 + ellipse1.e*x2/rho)
-
-            # compute meriodional distance
-            D = sqrt(z22 + (rho - r1)^2)
-            dmin[i] = D
-        end
-    end
-
-    return dmin, SVector{4}(u_min), SVector{4}(v_min)
 end
