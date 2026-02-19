@@ -37,6 +37,11 @@ function radial_rate(ellipse, angle)
     return ellipse.p*ellipse.e*sin(angle)/(1.0 + ellipse.e*cos(angle))^2
 end
 
+function position(ellipse, angle)
+    r = radius(ellipse, angle)
+    return r*(cos(angle)*ellipse.x + sin(angle)*ellipse.y)
+end
+
 """ method from Wisniowsky + Rickmann 2013. scans for near minima, then iteratively refines
 """
 function moid_scan(ellipse1::Ellipse, ellipse2::Ellipse; kwargs...)

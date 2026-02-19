@@ -89,7 +89,7 @@ end
 #--- Cometary Elements ---
 
 function Cometary(elements::Keplerian)
-    q  = elements.a * (1.0 - elements.e)
+    q  = elements.a * (1.0 - elements.e) 
     n  = sqrt(gm/elements.a^3)
     tp = elements.M/n
     return Cometary(q, elements.e, elements.i, elements.Om, elements.w, tp, elements.epoch, elements.gm)
