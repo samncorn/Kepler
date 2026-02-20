@@ -157,7 +157,7 @@ function Cometary(state::Cartesian)
     dt = L/v
 
     # return q, e, i, Om, w, epoch - dt
-    return Cometary(q, e, i, Om, w, dt, epoch, gm)
+    return Cometary(q, e, i, Om, w, epoch - dt, epoch, gm)
 end
 
 # TODO
