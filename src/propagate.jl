@@ -54,7 +54,7 @@ function propagate(pos, vel, dt, gm)
 
     b = 2.0 - dot(vel, vel)
 
-    x = solve_kepler_universal_A42_canonical(pos, vel, dt)
+    x = solve_kepler_universal_canonical(pos, vel, dt)
 
     # compute f and g functions
     _, c1, c2, c3 = stumpff(b*x^2)
@@ -97,7 +97,7 @@ function propagate_stm(pos, vel, dt, gm)
     # constants
     b = 2 - dot(vel, vel)
 
-    x = solve_kepler_universal_A42_canonical(pos, vel, dt)
+    x = solve_kepler_universal_canonical(pos, vel, dt)
 
     # compute f and g functions
     _, c1, c2, c3, c4, c5 = stumpff5(b*x^2)
