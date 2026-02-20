@@ -25,7 +25,7 @@ function Ellipse(orbit::Cometary)
     x = SVector{3}(1.0, 0.0, 0.0)
     y = SVector{3}(0.0, 1.0, 0.0)
     # rotate appropriately
-    R = zrot(-orbit.Om)*xrot(-orbit.i)*zrot(-orbit.w)
+    R = zrot(orbit.Om)*xrot(orbit.i)*zrot(orbit.w)
     return Ellipse(orbit.e, p, R*x, R*y)
 end
 

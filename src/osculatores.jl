@@ -47,7 +47,7 @@ function Cartesian(elements::Cometary)
     vel = SVector{3}(0.0, vq, 0.0)
 
     # rotate 
-    R  = zrot(-Om)*xrot(-i)*zrot(-w)
+    R  = zrot(Om)*xrot(i)*zrot(w)
     
     pos = R*pos
     vel = R*vel
