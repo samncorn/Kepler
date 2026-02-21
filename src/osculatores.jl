@@ -70,7 +70,7 @@ Keplerian(state::Cartesian) = Keplerian(Cometary(state))
 
 function Keplerian(elements::Cometary)
     a = elements.q/(1.0 - elements.e)
-    n = sqrt(gm/elements.a)
+    n = sqrt(gm/elements.a^3)
     M = elements.tp*n
     return Keplerian(a, elements.e, elements.i, elements.Om, elements.w, M, elements.epoch, elements.gm)
 end

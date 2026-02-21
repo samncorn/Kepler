@@ -22,7 +22,7 @@ end
 
 "Universal kepler solver."
 function propagate(state::Cartesian, t)
-    posf, velf = propagate(state.position, state.velcoity, t - state.epoch, state.gm)
+    posf, velf = propagate(state.position, state.velocity, t - state.epoch, state.gm)
     return Cartesian(posf, velf, t, state.gm)
 end
 
