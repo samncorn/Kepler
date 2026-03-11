@@ -206,8 +206,8 @@ function solve_kepler_universal_canonical(pos, vel, dt)
         end
     end
 
-    return find_zero(_x -> universal_kepler_canonical(_x, b, s0) - dt, (xl, xh), A42())
-    # return chandrupatla_brent(_x -> universal_kepler_canonical(_x, b, s0) - dt, (xl, xh))
+    # return find_zero(_x -> universal_kepler_canonical(_x, b, s0) - dt, (xl, xh), A42())
+    return chandrupatla_brent(_x -> universal_kepler_canonical(_x, b, s0) - dt, sort((xl, xh)))
     # return inverse_quintic(_x -> universal_kepler2_canonical_offset(_x, b, s0, dt), (xl, xh))
 end
 

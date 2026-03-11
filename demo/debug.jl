@@ -134,10 +134,10 @@ gm  = 398600.4415 # per vallado
 
 # found in the wild
 # very hyperbolic, initial guess overflows
-# pos = [2.0018040983461143, 4.310971608104017, -1.4324077743346348]
-# vel = [340.5788770104138, 455.2580303275891, -243.9375394403128]
-# dt = 9.582662548925576
-# gm = 0.0002959122082326087
+pos = [2.0018040983461143, 4.310971608104017, -1.4324077743346348]
+vel = [340.5788770104138, 455.2580303275891, -243.9375394403128]
+dt = 9.582662548925576
+gm = 0.0002959122082326087
 
 # pos = [2.2275391726284246, 57.18786513542615, 655.9177224430462]
 # vel = [0.999466534019431, 30.149863863535487, -878.3833478838895]
@@ -208,10 +208,10 @@ gm  = 398600.4415 # per vallado
 # dt  = 20.0
 # gm  = 0.0002959122082326087
 
-pos = SA[-1.8221854522550467, -2.9696783907212656, -0.33280517953538924]
-vel = SA[0.0053707172222112656, -0.007509225059211319, 0.00014756352422287024]
-gm = 0.0002959122082326087
-dt = 9.046778095
+# pos = SA[-1.8221854522550467, -2.9696783907212656, -0.33280517953538924]
+# vel = SA[0.0053707172222112656, -0.007509225059211319, 0.00014756352422287024]
+# gm = 0.0002959122082326087
+# dt = 9.046778095
 
 # benchmark
 # MAKE SURE STATIC VECTORS ARE USED
@@ -219,7 +219,7 @@ dt = 9.046778095
 # @btime Kepler.propagate_with_partials($pos, $vel, $dt, $gm)
 
 # posf, velf, dxdx, dxdv, dvdx, dvdv = Kepler.propagate_with_partials(pos, vel, dt, gm)
-posf, velf = Kepler.propagate(pos, vel, dt, gm)
+# posf, velf = Kepler.propagate(pos, vel, dt, gm)
 posf, velf = Kepler.propagate(pos, vel, -dt, gm)
 
 
@@ -294,11 +294,13 @@ function kepler_guess(pos, vel, dt, gm)
     return x0
 end
 
-if dt < 0
-    dt  = -dt
-    vel = -vel
-    @printf "preopagting reverse time state..."
-end
+# if dt < 0
+#     dt  = -dt
+#     vel = -vel
+#     @printf "preopagting reverse time state..."
+# end
+
+dt = -dt
 
 tol = 1e-15
 max_iter = 1000
@@ -321,8 +323,9 @@ b = 2 - dot(vel0, vel0)
 a = DU/b
 # gm*b
 
-h = cross(pos, vel)
-e = norm(cross(vel, h)/gm - pos/r0)
+hvec = cross(pos, vel)
+evec = cross(vel, hvec)/gm - normalize(pos)
+e = norm(evec)
 
 # try to bracket the root
 # dt/dx = r >= 0, and monotonic, so we can step until we find a bracket
@@ -332,141 +335,125 @@ yl = -dt/TU
 rl = 1.0
 
 # xh = Kepler.kepler_guess(pos, vel, dt, gm)
-xh = Kepler.kepler_guess_canonical(pos0, vel0, dt/TU)
+# xh = Kepler.kepler_guess_canonical(pos0, vel0, dt/TU)
 xh = dt/TU
-# dth, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
+# yh, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
 
-z  = b*xh^2
-c0b, c1b, c2b, c3b = Kepler.stumpff(z)
-# c0, c1, c2, c3, c4, c5 = Kepler.stumpff_fold(z)
+yh, rh = Kepler.universal_kepler2_canonical(xh, b, s0)
+yh -= dt/TU
 
-# function stumpff_continued(i, z, n)
-#     c = one(z)
-#     for k in n:-1:1
-#         # c -= z/((i + 2k)*(i + k))
-#         c = 1 - z/((i + 2k)*(i + k))
+# function try_to_bracket(f, bracket)
+#     xl, xh = sort(bracket)
+#     yl = f(xl)
+#     yh = f(xh)
+#     i = 0
+#     while i < 100 && (sign(yl) == sign(yh) || isinf(yh) || isnan(yh))
+#         if isinf(yh) || isnan(yh) || isinf(yl) || isnan(yl)
+
+#         elseif sign(yl) == sign(yh)
+
+#         else
+#             throw("Failed to find bracket")
+#         end
 #     end
-#     return c*factorial(i)
 # end
 
-function stumpff5(z)
-    n = 0
-    while abs(z) > 1e-6
-        z /= 4
-        n += 1
-    end
-
-    c4 = 1/24  - z*720
-    c5 = 1/120 - z*5040
-    # p  = z
-    # k  = 8
-    p  = -z/40320 # start with the 8! terms
-    i = 8
-    while abs(p) > 0
-        p *= z/i
-        c4 += p
-        p /= i + 1
-        c5 += p
-        i += 2
-    end
-    while n > 0
-        c3 = 1/6 - z*c5
-        c2 = 1/2 - z*c4
-        c1 = 1 - z*c3
-        c0 = 1 - z*c2
-
-        c5 = (c5 + c4 + c3 + c2)/16
-        c4 = c3*(1 - c1)/8
-        z *= 4
-        n -= 1
-    end
-
-    c3 = 1/6 - z*c5
-    c2 = 1/2 - z*c4
-    c1 = 1 - z*c3
-    c0 = 1 - z*c2
-    
-    return c0, c1, c2, c3, c4, c5
-end
-
-c4 = 1/24  - z/720
-c5 = 1/120 - z/5040
-# p  = z
-# k  = 8
-p  = -z/40320 # start with the 8! terms
-i = 8
-# while abs(p) > 0
-while i < 15
-    p  *= z/i
-    c4 += p
-    p  /= i + 1
-    c5 += p
-    i  += 2
-end
-i
-# while dc >  
-
-c2 = 1/2 - z*c4
-c3 = 1/6 - z*c5
-c0 = 1 - z*c2
-c1 = 1 - z*c3
-
-# c0, c1, c2, c3, c4, c5 = stumpff5(z)
-
-c0 - c0b
-c1 - c1b
-c2 - c2b
-c3 - c3b
-# c0, c1, c2, c3 = c0b, c1b, c2b, c3b
-
-dth = xh*(c1 + xh*(s0*c2 + xh*c3))
-rh  = c0 + xh*(s0*c1 + xh*c2)
-
-yh = dth - dt/TU
-
-# xh = (xl + xh)/2
-# Kepler.Kepler.stumpff(b*xh^2)
-# dth, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
-
-xl, xh
-yl, yh
-
-b*xh^2
-
 i = 0
-while i < 100 && (sign(yl) == sign(yh) || isinf(dth) || isnan(dth))
+while i < 100 && (sign(yl) == sign(yh) || isinf(yh) || isnan(yh))
     i += 1
     println(i)
-    if isinf(dth) || isnan(dth) #|| isnan(rh)
+    if isinf(yh) || isnan(yh) #|| isnan(rh)
         println("bisecting")
-        xh = (xl + xh)/2
-        dth, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
-        yh = dth - dt
+        xh  = (xl + xh)/2
+        yh  = Kepler.universal_kepler_canonical(xh, b, s0)
+        yh -= dt/TU
         if xl == xh 
             throw("dt exceeds the computable range of values")
         end
     elseif sign(yl) == sign(yh) && !isnan(rh)
         println("shifting bracket")
         xl  = xh
-        # xh += (dt - dth)/rh
         xh *= 2
-        # xh += (dth)/rh
         yl  = yh
         rl  = rh
-        dth, rh = Kepler.universal_kepler2(xh, b, r0, s0, gm)
-        yh  = dth - dt
+        yh  = Kepler.universal_kepler_canonical(xh, b, s0)
+        yh -= dt/TU
     end
 end
-x = (xl + xh)/2
+# x = (xl + xh)/2
+
+(xl, xh) = sort((xl, xh))
 
 @printf "  lower bound = %.10f\n" xl
-@printf "    estimate  = %.10f\n" x
 @printf "  upper bound = %.10f\n" xh
 
-x = Kepler.solve_kepler_universal_A42_canonical(pos0, vel0, dt/TU)
+# x = Kepler.solve_kepler_universal_A42_canonical(pos0, vel0, dt/TU)
+function stumpff_series(i, z::T) where {T}
+    n = 0
+    c = T(1/factorial(i))
+    p = c
+    d = 2c
+    j = 1
+    while c != d && n < 1000
+        n += 1
+        d = c
+        p *= -z/((i + 2j)*(i + 2j - 1))
+        c += p
+        j += 1
+    end
+    println("$n stumpf terms")
+    return c
+end
 
-# x = find_zero(_x -> Kepler.universal_kepler(_x, b, r0, s0, gm) - dt, (xl, xh), A42())
+function stumpff(z::T) where {T}
+    if z > 1.0
+        sin2 = sin(sqrt(z)/2)
+        cos2 = cos(sqrt(z)/2)
 
+        c1 = 2sin2*cos2/sqrt(z)
+        c2 = 2sin2^2/z
+        c0 = 1 - z*c2
+        c3 = (1 - c1)/z
+
+        return c0, c1, c2, c3
+    elseif z < -1.0
+        sin2 = sinh(sqrt(-z)/2)
+        cos2 = cosh(sqrt(-z)/2)
+
+        c1 = 2sin2*cos2/sqrt(-z)
+        c2 = -2sin2^2/z
+        c0 = 1 - z*c2
+        c3 = (1 - c1)/z
+
+        return c0, c1, c2, c3
+    else
+        c3 = stumpff_series(3, z)
+        c2 = stumpff_series(2, z)
+        c1 = 1 - z*c3
+        c0 = 1 - z*c2
+        return c0, c1, c2, c3
+    end
+end
+
+function universal_kepler_canonical(x, b, s0)
+    z  = b*x^2
+    _, c1, c2, c3 = stumpff(z)
+    dt = x*(c1 + x*(s0*c2 + x*c3))
+    @printf "z = %.6e t = %.6e" z dt
+    return dt
+end
+
+stumpff(b*xl^2)
+
+# x = find_zero(_x -> Kepler.universal_kepler_canonical(_x, b, s0) - dt, (xl, xh), A42())
+# x = find_zero(_x -> universal_kepler_canonical(_x, b, s0) - dt, (xl, xh), A42())
+x = Kepler.chandrupatla_brent(_x -> universal_kepler_canonical(_x, b, s0) - dt/TU, (xl, xh))
+dt_x = universal_kepler_canonical(x, b, s0) - dt/TU
+
+universal_kepler_canonical(nextfloat(x), b, s0) - dt/TU
+universal_kepler_canonical(prevfloat(x), b, s0) - dt/TU
+
+2
 # safeguard against slow convergence by tracking iterations since either end of the bracket changed
 # hi = 0
 # li = 0
