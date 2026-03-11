@@ -171,8 +171,8 @@ function solve_kepler_universal_canonical(pos, vel, dt)
     b  = 2 - dot(vel, vel)
 
     # better initial guesses
-    xh = kepler_guess_canonical(pos, vel, dt)
-    # xh = dt
+    # xh = kepler_guess_canonical(pos, vel, dt)
+    xh = dt
 
     yh, rh = universal_kepler2_canonical(xh, b, s0)
     yh -= dt
