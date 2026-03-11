@@ -36,14 +36,14 @@ end
 
 # NOTE: THE f used here is 1 - f', where f' is the traditional f
 function propagate(pos, vel, dt, gm)
-    if dt == 0
-        return pos, vel
-    end
+    # if dt == 0
+    #     return pos, vel
+    # end
 
-    if dt < 0
-        posf, velf = propagate(pos, -vel, -dt, gm)
-        return posf, -velf
-    end
+    # if dt < 0
+    #     posf, velf = propagate(pos, -vel, -dt, gm)
+    #     return posf, -velf
+    # end
 
     DU = norm(pos)*sign(gm)
     TU = sqrt(DU^3/gm)
@@ -77,15 +77,15 @@ end
 See Battin 9.7
 """
 function propagate_stm(pos, vel, dt, gm)
-    if dt == 0
-        return pos, vel, I3, I3, I3, I3
-    end
+    # if dt == 0
+    #     return pos, vel, I3, I3, I3, I3
+    # end
 
-    if dt < 0
-        # posf, velf = propagate(pos, -vel, -dt, gm; max_iter = max_iter)
-        posf, velf, dxdx, dxdv, dvdx, dvdv = propagate_with_partials(pos, -vel, -dt, gm)
-        return posf, -velf, dxdx, -dxdv, -dvdx, dvdv
-    end
+    # if dt < 0
+    #     # posf, velf = propagate(pos, -vel, -dt, gm; max_iter = max_iter)
+    #     posf, velf, dxdx, dxdv, dvdx, dvdv = propagate_stm(pos, -vel, -dt, gm)
+    #     return posf, -velf, dxdx, -dxdv, -dvdx, dvdv
+    # end
 
     DU = norm(pos)*sign(gm)
     TU = sqrt(DU^3/gm)

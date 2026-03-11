@@ -211,7 +211,7 @@ gm  = 398600.4415 # per vallado
 pos = SA[-1.8221854522550467, -2.9696783907212656, -0.33280517953538924]
 vel = SA[0.0053707172222112656, -0.007509225059211319, 0.00014756352422287024]
 gm = 0.0002959122082326087
-dt = 3.046778095
+dt = 9.046778095
 
 # benchmark
 # MAKE SURE STATIC VECTORS ARE USED
@@ -220,9 +220,11 @@ dt = 3.046778095
 
 # posf, velf, dxdx, dxdv, dvdx, dvdv = Kepler.propagate_with_partials(pos, vel, dt, gm)
 posf, velf = Kepler.propagate(pos, vel, dt, gm)
+posf, velf = Kepler.propagate(pos, vel, -dt, gm)
+
 
 # check state against spice
-statef = SPICE.prop2b(gm, [pos..., vel...], dt)
+statef = SPICE.prop2b(gm, [pos..., vel...], -dt)
 posf2 = statef[1:3]
 velf2 = statef[4:6]
 
