@@ -170,7 +170,7 @@ function solve_kepler_universal_canonical(pos, vel, dt)
     s0 = dot(vel, pos)
     b  = 2 - dot(vel, vel)
 
-    # better initial guesses
+    # better initial guesses?
     # xh = kepler_guess_canonical(pos, vel, dt)
     xh = dt
 

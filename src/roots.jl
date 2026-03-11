@@ -8,9 +8,9 @@ function chandrupatla_brent(f, bracket)
     x  = a + (b - a)/2
     c  = a # contrapoint
     yc = ya
-    println("a = $a, b = $b, x = $x")
-    println("ya = $ya, yb = $yb")
-    println()
+    # println("a = $a, b = $b, x = $x")
+    # println("ya = $ya, yb = $yb")
+    # println()
     dx1 = Inf
     dx2 = Inf
     # dx3 = Inf
@@ -21,10 +21,10 @@ function chandrupatla_brent(f, bracket)
         if y == 0
             return x
         end
-        println(i)
-        println("a = $a, b = $b, x = $x")
-        println("ya = $ya, yb = $yb, y = $y")
-        println()
+        # println(i)
+        # println("a = $a, b = $b, x = $x")
+        # println("ya = $ya, yb = $yb, y = $y")
+        # println()
         if sign(y) == sign(yb)
             c = b
             b = a
@@ -44,7 +44,7 @@ function chandrupatla_brent(f, bracket)
 
         phi = (ya - yb) / (yc - yb)
         xi  = (a - b) / (c - b)
-        println("ξ = $xi")
+        # println("ξ = $xi")
         # if dc <= da/2 && 
         # @assert a < b
         lim1 = phi^2
@@ -53,13 +53,13 @@ function chandrupatla_brent(f, bracket)
         if abs(c - b) < dx1/2 && lim1 < xi < lim2
         # if abs(c - b) < dx1/2 && xi > phi^2 && xi < 1 - (1 - phi)^2
             # inverse interpolate
-            println("interpolate")
+            # println("interpolate")
             k = (c - a) / (b - a)
             t = (ya/(ya - yb))*(yc/(yc - yb)) - k*(ya/(yc - ya))*(yb/(yb - yc))
             x = a + t*(b - a)
         else
             # bisect
-            println("bisect")
+            # println("bisect")
             x = a + (b - a)/2
         end
         dx1 = dx2
@@ -136,7 +136,7 @@ function inverse_quintic(fdf, bracket)
         dx1 = dx2
         dx2 = abs(c - b)
         i += 1
-        println(i)
+        # println(i)
     end
     return x
 end
