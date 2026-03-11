@@ -148,7 +148,7 @@ stm_vel_pos0_normalized(pos, posf, vel, velf, rf, df, C) = (
     - (1/rf^2)*posf*transpose(velf - vel) 
     + df*(
         I - (1/rf^2)*posf*transpose(posf) 
-          + (1/rf)*posf*transpose(delv)*(
+          + (1/rf)*posf*transpose(velf - vel)*(
               posf*transpose(velf)
             - velf*transpose(posf)
           )
