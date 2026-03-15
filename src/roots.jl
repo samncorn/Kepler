@@ -4,6 +4,13 @@ function chandrupatla_brent(f, bracket)
     a, b = bracket
     ya = f(a)
     yb = f(b)
+    if ya == 0
+        return a
+    end
+
+    if yb == 0
+        return b
+    end
     @assert sign(ya) != sign(yb) "interval cannot be guarunteed to bracket a root"
     x  = a + (b - a)/2
     c  = a # contrapoint
@@ -77,6 +84,13 @@ function inverse_quintic(fdf, bracket)
     a, b = bracket
     ya, da = fdf(a)
     yb, db = fdf(b)
+    if ya == 0
+        return a
+    end
+
+    if yb == 0
+        return b
+    end
     @assert sign(ya) != sign(yb) "interval cannot be guarunteed to bracket a root"
     x  = a + (b - a)/2
     c  = a # contrapoint
