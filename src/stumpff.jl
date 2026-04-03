@@ -112,7 +112,7 @@ function universal05(b, s)
         U0 = 1.0 - b*U2
         U3 = (s - U1)/b
         U4 = (s^2/2.0 - U2)/b
-        U5 = (s^3/6.0 - U2)/b
+        U5 = (s^3/6.0 - U3)/b
 
         return U0, U1, U2, U3, U4, U5
     elseif b < 0
@@ -125,7 +125,7 @@ function universal05(b, s)
         U0 = 1.0 - b*U2
         U3 = (s - U1)/b
         U4 = (s^2/2.0 - U2)/b
-        U5 = (s^3/6.0 - U2)/b
+        U5 = (s^3/6.0 - U3)/b
 
         return U0, U1, U2, U3, U4, U5
     else
