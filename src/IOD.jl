@@ -44,7 +44,7 @@ function herget_solve_with_partials(obs1, obs2, rho1, rho2, gm, c)
 end
 
 # assumes 0-rev lambert solution
-function herget_solve_with_partials(obs1, obs2, rho1, rho2, gm, c)
+function herget_solve(obs1, obs2, rho1, rho2, gm, c)
     pos1 = rho1*obs1.angles + obs1.position
     pos2 = rho2*obs2.angles + obs2.position
 
