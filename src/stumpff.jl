@@ -84,12 +84,6 @@ function universal03(b, s)
         U0 = 1.0 - b*U2
         U3 = (s - U1)/b
 
-        # U0 = cos(z)
-        # U1 = sin(z)/sqrt(b)
-        # U2 = (1.0 - U0)/b
-        # U3 = (s - U1)/b
-        # U2 = (1 - cos(z))/b
-        # U3 = (s - )
         return U0, U1, U2, U3
     elseif b < 0
         z  = sqrt(-b)*s
@@ -101,22 +95,43 @@ function universal03(b, s)
         U0 = 1.0 - b*U2
         U3 = (s - U1)/b
 
-        # z  = sqrt(-b)*s
-        # U0 = cosh(z)
-        # U1 = sinh(z)/sqrt(-b)
-        # U2 = (1.0 - U0)/b
-        # U3 = (s - U1)/b
-        # U2 = ((s^2)/2 - U0)/b
-        # U3 = ((s^3)/6 - U1)/b
         return U0, U1, U2, U3
     else
         return 1.0, s, (s^2)/2, (s^3)/6
     end
 end
 
-# function universal05(s, b)
+function universal05(b, s)
+    if b > 0
+        z  = sqrt(b)*s
+        s2 = sin(z/2)
+        c2 = cos(z/2)
 
-# end
+        U1 = 2s2*c2/sqrt(b)
+        U2 = 2s2*s2/b
+        U0 = 1.0 - b*U2
+        U3 = (s - U1)/b
+        U4 = (s^2/2.0 - U2)/b
+        U5 = (s^3/6.0 - U2)/b
+
+        return U0, U1, U2, U3, U4, U5
+    elseif b < 0
+        z  = sqrt(-b)*s
+        s2 = sinh(z/2)
+        c2 = cosh(z/2)
+
+        U1 = 2s2*c2/sqrt(-b)
+        U2 = -2s2*s2/b
+        U0 = 1.0 - b*U2
+        U3 = (s - U1)/b
+        U4 = (s^2/2.0 - U2)/b
+        U5 = (s^3/6.0 - U2)/b
+
+        return U0, U1, U2, U3, U4, U5
+    else
+        return 1.0, s, (s^2)/2, (s^3)/6, (s^4)/24, (s^5)/120
+    end
+end
 
 # function universal_series(s, b)
 
