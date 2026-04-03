@@ -37,7 +37,7 @@ end
 
 function state_to_angles(x0::Kepler.Cartesian, t_obs, obs_pos, c)
     traj = t -> Kepler.propagate(x0, t)[1]
-    app, _, _  = apparent_state(traj, obs_pos, t_obs, c; max_iter = 3)
+    app, _, _  = apparent_posotion(traj, obs_pos, t_obs, c; max_iter = 3)
     r    = norm(app)
     xhat = app/r
     return xhat
@@ -45,7 +45,7 @@ end
 
 function state_to_angles_with_partials(x0::Kepler.Cartesian, t_obs, obs_pos, c)
     traj = t -> Kepler.propagate(x0, t).position
-    app, lt, _  = apparent_state(traj, obs_pos, t_obs, c; max_iter = 3)
+    app, lt, _  = apparent_posotion(traj, obs_pos, t_obs, c; max_iter = 3)
     r    = norm(app)
     xhat = app/r
 
