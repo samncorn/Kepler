@@ -1,5 +1,6 @@
 function stumpff(z::T) where {T}
-    if z > 1.0
+    tol = 1.0
+    if z > tol
         sin2 = sin(sqrt(z)/2)
         cos2 = cos(sqrt(z)/2)
 
@@ -9,7 +10,7 @@ function stumpff(z::T) where {T}
         c3 = (1 - c1)/z
 
         return c0, c1, c2, c3
-    elseif z < -1.0
+    elseif z < -tol
         sin2 = sinh(sqrt(-z)/2)
         cos2 = cosh(sqrt(-z)/2)
 
@@ -29,7 +30,8 @@ function stumpff(z::T) where {T}
 end
 
 function stumpff5(z)
-    if z > 1.0
+    tol = 1.0
+    if z > tol
         c0 = cos(sqrt(z))
         c1 = sin(sqrt(z))/sqrt(z)
         c2 = (1 - c0)/z
@@ -37,7 +39,7 @@ function stumpff5(z)
         c4 = (1/2 - c2)/z
         c5 = (1/6 - c3)/z
         return c0, c1, c2, c3, c4, c5
-    elseif z < -1.0
+    elseif z < -tol
         c0 = cosh(sqrt(-z))
         c1 = sinh(sqrt(-z))/sqrt(-z)
         c2 = (1 - c0)/z
@@ -70,3 +72,52 @@ function stumpff_series(i, z::T) where {T}
     end
     return c
 end
+
+function universal03(b, s)
+    if b > 0
+        z  = sqrt(b)*s
+        s2 = sin(z/2)
+        c2 = cos(z/2)
+
+        U1 = 2s2*c2/sqrt(b)
+        U2 = 2s2*s2/b
+        U0 = 1.0 - b*U2
+        U3 = (s - U1)/b
+
+        # U0 = cos(z)
+        # U1 = sin(z)/sqrt(b)
+        # U2 = (1.0 - U0)/b
+        # U3 = (s - U1)/b
+        # U2 = (1 - cos(z))/b
+        # U3 = (s - )
+        return U0, U1, U2, U3
+    elseif b < 0
+        z  = sqrt(-b)*s
+        s2 = sinh(z/2)
+        c2 = cosh(z/2)
+
+        U1 = 2s2*c2/sqrt(-b)
+        U2 = -2s2*s2/b
+        U0 = 1.0 - b*U2
+        U3 = (s - U1)/b
+
+        # z  = sqrt(-b)*s
+        # U0 = cosh(z)
+        # U1 = sinh(z)/sqrt(-b)
+        # U2 = (1.0 - U0)/b
+        # U3 = (s - U1)/b
+        # U2 = ((s^2)/2 - U0)/b
+        # U3 = ((s^3)/6 - U1)/b
+        return U0, U1, U2, U3
+    else
+        return 1.0, s, (s^2)/2, (s^3)/6
+    end
+end
+
+# function universal05(s, b)
+
+# end
+
+# function universal_series(s, b)
+
+# end

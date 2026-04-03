@@ -36,37 +36,28 @@ end
 
 # NOTE: THE f used here is 1 - f', where f' is the traditional f
 function propagate(pos, vel, dt, gm)
-    # if dt == 0
-    #     return pos, vel
-    # end
-
-    # if dt < 0
-    #     posf, velf = propagate(pos, -vel, -dt, gm)
-    #     return posf, -velf
-    # end
-
-    DU = norm(pos)*sign(gm)
-    TU = sqrt(DU^3/gm)
-
+    DU = norm(pos)
+    TU = sqrt(DU^3/abs(gm))
     pos /= DU
     vel /= DU/TU
     dt  /= TU
 
-    b = 2.0 - dot(vel, vel)
+    b  = 2.0 - dot(vel, vel)
+    s0 = dot(vel, pos)
 
-    x = solve_kepler_universal_canonical(pos, vel, dt)
+    x = solve_kepler_universal_normalized_new(pos, vel, dt)
 
     # compute f and g functions
-    _, c1, c2, c3 = stumpff(b*x^2)
+    _, U1, U2, _ = universal03(b, x)
 
-    # more numerically precise? According to Rein + Tamayo WHFast paper
-    f = -c2*x^2
-    g = dt - c3*x^3
+    # we use the modified versions of f and dg given by Rein et al
+    f = U2
+    g = U1 + s0*U2
     posf = f*pos + g*vel + pos
     
     rf = norm(posf)
-    df = -x*c1/rf
-    dg = -(c2/rf)*x^2
+    df = -U1/rf
+    dg = -U2/rf
     velf = df*pos + dg*vel + vel
 
     return posf*DU, velf*DU/TU
@@ -77,16 +68,6 @@ end
 See Battin 9.7
 """
 function propagate_stm(pos, vel, dt, gm)
-    # if dt == 0
-    #     return pos, vel, I3, I3, I3, I3
-    # end
-
-    # if dt < 0
-    #     # posf, velf = propagate(pos, -vel, -dt, gm; max_iter = max_iter)
-    #     posf, velf, dxdx, dxdv, dvdx, dvdv = propagate_stm(pos, -vel, -dt, gm)
-    #     return posf, -velf, dxdx, -dxdv, -dvdx, dvdv
-    # end
-
     DU = norm(pos)*sign(gm)
     TU = sqrt(DU^3/gm)
 
@@ -97,23 +78,25 @@ function propagate_stm(pos, vel, dt, gm)
     # constants
     b = 2 - dot(vel, vel)
 
-    x = solve_kepler_universal_canonical(pos, vel, dt)
+    x = solve_kepler_universal_normalized_new(pos, vel, dt)
 
     # compute f and g functions
-    _, c1, c2, c3, c4, c5 = stumpff5(b*x^2)
+    # _, c1, c2, c3 = stumpff(b*x^2)
+    _, U1, U2, _, U4, U5 = universal05(b, x)
 
-    # more numerically precise? According to Rein + Tamayo WHFast paper
-    f = -c2*x^2
-    g = dt - c3*x^3
+    # we use the modified versions of f and dg given by Rein et al
+    f = U2
+    g = U1 + s0*U2
     posf = f*pos + g*vel + pos
     
     rf = norm(posf)
-    df = -x*c1/rf
-    dg = -(c2/rf)*x^2
+    df = -U1/rf
+    dg = -U2/rf
     velf = df*pos + dg*vel + vel
 
     # compute the partials (Battin)
-    C  = (x^2)*((x^3)*(3c5 - c4) - dt*c2)
+    # C  = (x^2)*((x^3)*(3c5 - c4) - dt*c2)
+    C    = 3U5 - x*U4 - dt*U2
     dxdx = stm_pos_pos0_normalized(pos, posf, vel, velf, rf, f, C)     # units of DU/DU = 1
     dxdv = stm_pos_vel0_normalized(pos, posf, vel, velf, f, g, C)*TU   # Units of TU
     dvdx = stm_vel_pos0_normalized(pos, posf, vel, velf, rf, df, C)/TU # Units of 1/TU
@@ -124,7 +107,7 @@ function propagate_stm(pos, vel, dt, gm)
 end
 
 # TODO: Add non-normalized variants
-# NOTE: THE f used here is 1 - f', where f' is the traditional f (as used in Battin)
+# NOTE: THE f used here is f' - 1, where f' is the traditional f (as used in Battin)
 #     : likewise for dg 
 # NOTE: normalized to r0 = 1, gm = 1
 stm_pos_pos0_normalized(pos, posf, vel, velf, rf, f, C) = (
@@ -165,7 +148,169 @@ stm_vel_vel0_normalized(pos, posf, vel, velf, rf, f, dg, C) = (
     )
 )
 
-function solve_kepler_universal_canonical(pos, vel, dt)
+function solve_kepler_universal_normalized_new(pos, vel, dt)
+    s0 = dot(vel, pos)
+    b  = 2.0 - dot(vel, vel)
+
+    # use x = 0 as the initial contrapoint
+    x1 = zero(dt)
+    y1 = -dt
+    r1 = one(dt)
+    # s1 = s0
+    p1 = (x = x1, y = y1, dy = r1)
+
+    if y1 == 0
+        return x1
+    end
+
+    # x2     = kepler_guess_canonical(pos, vel, dt)
+    # x2     = dt
+    # x2 = -dt/(1.0 - dt*s0/2)
+    x2 = dt + (s0/2)*dt^2
+    y2, r2 = universal_kepler2_canonical(x2, b, s0)
+    y2    -= dt
+    p2 = (x = x2, y = y2, dy = r2)
+
+    if y2 == 0
+        return x2
+    end
+
+    # bracket
+    while sign(p2.y) == sign(p1.y)
+        if p2.y == Inf
+            # println("halving")
+            x2 /= 2
+            y2, r2 = universal_kepler2_canonical(x2, b, s0)
+            y2    -= dt
+            p2 = (x = x2, y = y2, dy = r2)
+        else
+            # println("stepping")
+            # try to bracket
+            # compute a newton step, and deliberately overshoot (double the step)
+            p1 = p2
+
+            # x2 = (x2*r2 - 2y2)/r2
+            x2 *= 2
+            y2, r2 = universal_kepler2_canonical(x2, b, s0)
+            y2    -= dt
+            p2 = (x = x2, y = y2, dy = r2)
+        end
+    end
+
+    # force a newton step to overshoot
+    # x2 = (x2*r2 + 2abs(y2))/r2
+    # x2    -= 2sign(dt)*abs(y2)/r2
+    # y2, r2 = universal_kepler2_canonical(x2, b, s0)
+    # y2    -= dt
+    # p2 = (x = x2, y = y2, dy = r2)
+
+    if sign(y2) == sign(y1)
+        throw("failed to bracket (y = $y2)")
+    end
+    
+    if p1.y == 0
+        return p1.x
+    end
+    
+    if p2.y == 0
+        return p2.x
+    end
+
+    # if sign(y2) == sign(y1)
+    #     throw("NO BRACKET")
+    # end
+
+    if y2 == Inf || isnan(y2)
+        throw("OVERFLOW")
+    end
+
+    # println("found bracket")
+
+    # one manual inverse interpolation step
+    x = flmsm1_step(p1, p2)
+    # check for leaving the interval 
+    if x < p1.x || x > p2.x
+        x = (p1.x + p2.x)/2
+    end
+    y, r = universal_kepler2_canonical(x, b, s0)
+    y   -= dt
+    p3   = (x = x, y = y, dy = r)
+
+    if y == 0
+        return x
+    end
+
+    # shift the bracket, so that p1 is always the contrapoint
+    # that is, p2 and p3 bracket the root
+    if sign(p3.y) == sign(p2.y)
+        (p1, p2) = (p2, p1)
+    end
+
+    # inverse interpolation until convergence
+    # TODO: Try to prove convergence?
+    # TODO: 2nd derivative methods
+    i = 0
+    x = NaN # just it initialize the loop
+    while p1.x != x && p2.x != x && i < 1_000
+    # while abs(y) > 1e-12 && i < 1_000
+        i += 1
+
+        signab = sign((p1.y - p2.y)/(p1.x - p2.x))
+        if signab == sign(p1.dy) && signab == sign(p2.dy) && signab == sign(p3.dy) && p1.y != p3.y
+            # derivatives are well suited for inverse interpolation
+            # if p2.y != p3.y
+            #     # need unique values
+            #     x = flmsm1_step(p1, p2, p3)
+            # else
+            #     x = flmsm1_step(p1, p3)
+            # end
+
+            # there is a numeric instability in the 3-point method that leads to a biased drift in some classes of orbits
+            # the 2-point method seems to not encounter this, with only a modest hit to the convergence rate (2.73 vs 2.91)
+            # so it's likely not essential to 
+            # x = flmsm1_step(p1, p3)
+            x = flmsm1_step(p1, p3)
+        else
+            # attempt newton's method
+            x = (p3.x*p3.dy - p3.y)/p3.dy
+        end
+
+        # if we have stepped outside the bracket, bisect
+        if (x < p3.x && x < p2.x) || (x > p3.x && x > p2.x)
+            # x = (p2.x + p3.x)/2
+            x = p2.x + (p3.x - p2.x)/2
+        end
+
+        if isnan(x)
+            throw("NAN")
+        end
+        y, r = universal_kepler2_canonical(x, b, s0)
+        y   -= dt
+        p    = (x = x, y = y, dy = r)
+
+        if y == 0
+            return x
+        end
+
+        p1 = p2
+        p2 = p3
+        p3 = p
+        if sign(p3.y) == sign(p2.y)
+            (p1, p2) = (p2, p1)
+        end
+    end
+
+    if i == 1000
+        throw("Kepler solve hit max iterations")
+    end
+
+    return x
+end
+
+function solve_kepler_universal_normalized(pos, vel, dt)
+    # r0 = dot(pos, pos)
+    # @assert abs(1 - r0) < 
+
     # constants
     s0 = dot(vel, pos)
     b  = 2 - dot(vel, vel)
@@ -173,13 +318,12 @@ function solve_kepler_universal_canonical(pos, vel, dt)
     # better initial guesses?
     # xh = kepler_guess_canonical(pos, vel, dt)
     xh = dt
-
-    if dt == 0
-        return xh
-    end
-
     yh, rh = universal_kepler2_canonical(xh, b, s0)
     yh -= dt
+
+    if yh == 0
+        return xh
+    end
 
     xl = zero(xh)
     # xl = 0.0
@@ -291,24 +435,24 @@ end
 
 function kepler_guess_canonical(pos, vel, dt)
     s0 = dot(pos, vel)
-    b  = 2 - dot(vel, vel)
-    x0 = if abs(b) < 1e-6
-        # parabolic (Vallado)
+    b  = 2.0 - dot(vel, vel)
+    x0 = if b > 1e-6
+        # elliptic
+        dt
+    elseif b < -1e-6
+        # hyperbolic
+        a  = 1/b
+        ca = sqrt(-a)
+        sign(dt)*ca*log(-2dt*b/(s0 + sign(dt)*ca*(1.0 - b)))
+    elseif abs(b) < 1e-6
+        # parabolic
         h = cross(pos, vel)
         p = dot(h, h)
         s = acot(3*sqrt(1/p^3)*dt)/2
         w = atan(cbrt(tan(s)))
         sqrt(p)*2*cot(2w)
-    elseif b < 0
-        # hyperbolic (Vallado)
-        a = 1/b
-        abs(sqrt(-a)*log(-2dt/(a*(s0+sqrt(-a)*(1 - 1/a)))))
-    elseif b > 0
-        # elliptic
-        dt
-    else 
-        throw((gm = gm, b = b))
-        # dt/r0
+    else
+        throw("invalid input b = $b")
     end
     return x0
 end
@@ -322,12 +466,12 @@ function universal_kepler(x, b, r0, s0, gm)
     return dt
 end
 
-function universal_kepler_canonical(x, b, s0)
-    z  = b*x^2
-    _, c1, c2, c3 = stumpff(z)
-    dt = x*(c1 + x*(s0*c2 + x*c3))
-    return dt
-end
+# function universal_kepler_canonical(x, b, s0)
+#     z  = b*x^2
+#     _, c1, c2, c3 = stumpff(z)
+#     dt = x*(c1 + x*(s0*c2 + x*c3))
+#     return dt
+# end
 
 function universal_kepler2(x, b, r0, s0, gm)
     z  = b*x^2
@@ -338,11 +482,33 @@ function universal_kepler2(x, b, r0, s0, gm)
     return dt, r
 end
 
+# function universal_kepler2_canonical(x, b, s0)
+#     z  = b*x^2
+#     c0, c1, c2, c3 = stumpff(z)
+#     # c0, c1, c2, c3, _, _ = stumpff_fold(z)
+#     dt = x*(c1 + x*(s0*c2 + x*c3))
+#     r = c0 + x*(s0*c1 + x*c2)
+#     return dt, r
+# end
+
+function universal_kepler_canonical(x, b, s0)
+    _, U1, U2, U3 = universal03(b, x)
+    dt = U1 + s0*U2 + U3
+    return dt
+end
+
 function universal_kepler2_canonical(x, b, s0)
+    U0, U1, U2, U3 = universal03(b, x)
+    dt = U1 + s0*U2 + U3
+    r  = U0 + s0*U1 + U2 
+    return dt, r
+end
+
+function universal_kepler2_canonical_offset(x, b, s0, _dt)
     z  = b*x^2
     c0, c1, c2, c3 = stumpff(z)
     # c0, c1, c2, c3, _, _ = stumpff_fold(z)
     dt = x*(c1 + x*(s0*c2 + x*c3))
     r = c0 + x*(s0*c1 + x*c2)
-    return dt, r
+    return dt - _dt, r
 end

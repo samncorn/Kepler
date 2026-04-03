@@ -4,13 +4,13 @@ function chandrupatla_brent(f, bracket)
     a, b = bracket
     ya = f(a)
     yb = f(b)
-    if ya == 0
-        return a
-    end
+    # if ya == 0
+    #     return a
+    # end
 
-    if yb == 0
-        return b
-    end
+    # if yb == 0
+    #     return b
+    # end
     @assert sign(ya) != sign(yb) "interval cannot be guarunteed to bracket a root"
     x  = a + (b - a)/2
     c  = a # contrapoint
@@ -231,4 +231,44 @@ end
 
 function check_step(x, xl, xh; tol = 1e-14)
     return x == xl || x == xh || abs(xl - xh) < tol
+end
+
+# two point full linear multi-step method with 1 derivative
+# take tuples of (x, y, dy)
+function flmsm1_step(p0, p1)
+    q  = p0.y/p1.y
+
+    a0 = (1 - 3q)/(q - 1)^3
+    a1 = -1 - a0
+    b0 = q/(q-1)^2
+    b1 = q*b0
+
+    return -p1.y*(b1/p1.dy + b0/p0.dy) - a1*p1.x - a0*p0.x
+end
+
+
+# three point full linear multi-step method with 1 derivative
+# take tuples of (x, y, dy)
+function flmsm1_step(p0, p1, p2)
+    q0 = p0.y/p2.y
+    q1 = p1.y/p2.y
+
+    a0 = q1^2*(q0*(3 + 3q1 - 5q0) - q1)/((q0 - 1)*(q0 - q1))^3
+    a1 = q0^2*(q1*(5q1 - 3q0 - 3) + q0)/((q1 - 1)*(q0 - q1))^3 
+    a2 = (q0*q1)^2*(3q1 - q0*(q1 - 3) - 5)/((q0 - 1)*(q1 - 1))^3
+
+    b0 = q0*(q1/(q0 - 1)/(q0 - q1))^2
+    b1 = q1*(q0/(q0 - q1)/(q1 - 1))^2
+    b2 = ((q0*q1)/(q0 - 1)/(q1 - 1))^2
+
+    # x4 = -yn2*(b0/dn + b1/dn1 + b2/dn2) - a0*xn - a1*xn1 - a2*xn2
+    return -p2.y*(b0/p0.dy + b1/p1.dy + b2/p2.dy) - (a0*p0.x + a1*p1.x + a2*p2.x)
+end
+
+function halley_step(x, y, dy, ddy)
+    return x - y*dy/(dy^2 - y*ddy/2)
+end
+
+function householder3_step(x, y, dy, dddy)
+    return x - y*(dy^2 - y*ddy/2)/(dy*(dy^2 - y*ddy) + (dddy*y^2)/6)
 end

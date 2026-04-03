@@ -15,5 +15,7 @@ include("stumpff.jl")
 include("propagate.jl")
 include("moid.jl")
 include("Lambert.jl")
+include("observations.jl")
+include("IOD.jl")
 
 end # module

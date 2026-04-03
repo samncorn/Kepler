@@ -134,10 +134,10 @@ gm  = 398600.4415 # per vallado
 
 # found in the wild
 # very hyperbolic, initial guess overflows
-pos = [2.0018040983461143, 4.310971608104017, -1.4324077743346348]
-vel = [340.5788770104138, 455.2580303275891, -243.9375394403128]
-dt = 9.582662548925576
-gm = 0.0002959122082326087
+# pos = [2.0018040983461143, 4.310971608104017, -1.4324077743346348]
+# vel = [340.5788770104138, 455.2580303275891, -243.9375394403128]
+# dt = 9.582662548925576
+# gm = 0.0002959122082326087
 
 # pos = [2.2275391726284246, 57.18786513542615, 655.9177224430462]
 # vel = [0.999466534019431, 30.149863863535487, -878.3833478838895]
@@ -219,12 +219,12 @@ gm = 0.0002959122082326087
 # @btime Kepler.propagate_with_partials($pos, $vel, $dt, $gm)
 
 # posf, velf, dxdx, dxdv, dvdx, dvdv = Kepler.propagate_with_partials(pos, vel, dt, gm)
-# posf, velf = Kepler.propagate(pos, vel, dt, gm)
-posf, velf = Kepler.propagate(pos, vel, -dt, gm)
+posf, velf = Kepler.propagate(pos, vel, dt, gm)
+# posf, velf = Kepler.propagate(pos, vel, -dt, gm)
 
 
 # check state against spice
-statef = SPICE.prop2b(gm, [pos..., vel...], -dt)
+statef = SPICE.prop2b(gm, [pos..., vel...], dt)
 posf2 = statef[1:3]
 velf2 = statef[4:6]
 

@@ -3,6 +3,7 @@ using StaticArrays
 using LinearAlgebra
 using CairoMakie
 
+# OLD, NEED TO UPDATE FOR IZZO'S METHOD
 
 # phi = -4pi
 r1 = 3.0
