@@ -35,8 +35,8 @@ function herget_solve_with_partials(obs1, obs2, rho1, rho2, gm, c)
 
     # build the jacobian
     _, _, stm21 = propagate_stm(pos2, vel2, t1 - t2, gm)
-    dx1_dp1 = normalize(pos1)
-    dx2_dp2 = normalize(pos2)
+    dx1_dp1 = normalize(rho1*obs1.angles)
+    dx2_dp2 = normalize(rho2*obs2.angles)
 
     dv1_dp2 = stm21.dV_dX0 * dx2_dp2
 
