@@ -52,5 +52,5 @@ function herget_solve(obs1, obs2, rho1, rho2, gm, c)
     t2 = obs2.time - rho2/c
 
     vel1, _ = lambert_direct(pos1, pos2, t2 - t1, gm)
-    return Kepler.Cartesian(pos1, vel1, t1, gm), dx1_dp1, dv1_dp2
+    return Kepler.Cartesian(pos1, vel1, t1, gm)
 end
