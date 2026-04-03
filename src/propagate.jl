@@ -51,7 +51,7 @@ function propagate(pos, vel, dt, gm)
     _, U1, U2, _ = universal03(b, x)
 
     # we use the modified versions of f and dg given by Rein et al
-    f = U2
+    f = -U2
     g = U1 + s0*U2
     posf = f*pos + g*vel + pos
     

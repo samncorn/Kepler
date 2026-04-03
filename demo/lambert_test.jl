@@ -7,7 +7,7 @@ using ProgressMeter
 
 @showprogress for i in 1:100
     pos1 = SA[1.0, 0.0, 0.0]
-    vel1 = 2 * SA[rand(3)...]
+    vel1 = SA[rand(3)...]
     # dt = rand()*2pi
     gm = 1.0
 
