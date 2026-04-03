@@ -76,7 +76,8 @@ function propagate_stm(pos, vel, dt, gm)
     dt  /= TU
 
     # constants
-    b = 2 - dot(vel, vel)
+    b  = 2 - dot(vel, vel)
+    s0 = dot(vel, pos)
 
     x = solve_kepler_universal_normalized_new(pos, vel, dt)
 
