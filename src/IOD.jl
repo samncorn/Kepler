@@ -14,7 +14,7 @@ end
 """ returns an iterator over the observations, each returning a tuple of ((dra, ddec), H)
 """
 function herget_kernel(rho12, observations, obs1, obs2, gm, c)
-    orbit, dx1_dp1, dv1_dp2 = herget_solve(obs1, obs2, rho12..., gm, c)
+    orbit, dx1_dp1, dv1_dp2 = herget_solve_with_partials(obs1, obs2, rho12..., gm, c)
     return Iterators.map(o -> herget_residuals_with_partials(o, orbit, dx1_dp1, dv1_dp2, c), observations)
 end
 
