@@ -82,11 +82,15 @@ function propagate_stm(pos, vel, dt, gm)
     x = solve_kepler_universal_normalized_new(pos, vel, dt)
 
     # compute f and g functions
-    # _, c1, c2, c3 = stumpff(b*x^2)
-    _, U1, U2, _, U4, U5 = universal05(b, x)
+    _, c1, c2, c3, c4, c5 = stumpff5(b*x^2)
+    # _, U1, U2, _, U4, U5 = universal05(b, x)
+    U1 = x*c1
+    U2 = x^2*c2
+    U4 = x^4*c4
+    U5 = x^5*c5
 
     # we use the modified versions of f and dg given by Rein et al
-    f = U2
+    f = -U2
     g = U1 + s0*U2
     posf = f*pos + g*vel + pos
     
@@ -96,8 +100,8 @@ function propagate_stm(pos, vel, dt, gm)
     velf = df*pos + dg*vel + vel
 
     # compute the partials (Battin)
-    # C  = (x^2)*((x^3)*(3c5 - c4) - dt*c2)
-    C    = 3U5 - x*U4 - dt*U2
+    C  = (x^2)*((x^3)*(3c5 - c4) - dt*c2)
+    # C    = 3U5 - x*U4 - dt*U2
     dxdx = stm_pos_pos0_normalized(pos, posf, vel, velf, rf, f, C)     # units of DU/DU = 1
     dxdv = stm_pos_vel0_normalized(pos, posf, vel, velf, f, g, C)*TU   # Units of TU
     dvdx = stm_vel_pos0_normalized(pos, posf, vel, velf, rf, df, C)/TU # Units of 1/TU
@@ -122,7 +126,7 @@ stm_pos_vel0_normalized(pos, posf, vel, velf, f, g, C) = (
     g*I 
     - f*(
           (posf - pos)*transpose(vel) 
-        - (vel - velf)*transpose(pos)
+        - (velf - vel)*transpose(pos)
         )
     + C*velf*transpose(vel)
 )
@@ -130,13 +134,7 @@ stm_pos_vel0_normalized(pos, posf, vel, velf, f, g, C) = (
 stm_vel_pos0_normalized(pos, posf, vel, velf, rf, df, C) = (
     - (velf - vel)*transpose(pos)
     - (1/rf^2)*posf*transpose(velf - vel) 
-    + df*(
-        I - (1/rf^2)*posf*transpose(posf) 
-          + (1/rf)*posf*transpose(velf - vel)*(
-              posf*transpose(velf)
-            - velf*transpose(posf)
-          )
-        )
+    + df*(I - (1/rf^2)*posf*transpose(posf) + (1/rf)*(posf*transpose(velf) - velf*transpose(posf))*posf*transpose(velf - vel))
     - C/(rf)^3*posf*transpose(pos)
 )
 
