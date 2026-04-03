@@ -58,7 +58,7 @@ function state_to_angles_with_partials(x0::Kepler.Cartesian, t_obs, obs_pos, c)
     return xhat, dang_dx*dxdx, dang_dx*dxdv
 end
 
-function compute_residuals(obs, x0::Kepler.Cartesian)
+function compute_residuals(obs, x0::Kepler.Cartesian, c)
     ang = state_to_angles(x0, obs.time, obs.position, c)
     # convert to long-lat
     z = SVector{3}(0.0, 0.0, 1.0)
