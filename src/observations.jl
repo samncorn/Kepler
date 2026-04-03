@@ -1,7 +1,7 @@
 struct angles_observation{T}
     time::T
-    position::SVector{T}
-    angles::SVector{T}
+    position::SVector{3, T}
+    angles::SVector{3, T}
 end
 
 function apparent_position(target_traj, obs_pos, t, c; lt_tol = 1e-15, max_iter = 20)
