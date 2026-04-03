@@ -20,7 +20,19 @@ end
 
 function herget_residuals_with_partials(obs, orbit, dx1_dp1, dv1_dp2, c)
     resid, J_x, J_v = compute_residuals_with_partials(obs, orbit, c)
-    return resid, hcat(J_x*dx1_dp1, J_v*dv1_dp2)
+    return resid, -hcat(J_x*dx1_dp1, J_v*dv1_dp2)
+end
+
+# assumes 0-rev lambert solution
+function herget_solve(obs1, obs2, rho1, rho2, gm, c)
+    pos1 = rho1*obs1.angles + obs1.position
+    pos2 = rho2*obs2.angles + obs2.position
+
+    t1 = obs1.time - rho1/c
+    t2 = obs2.time - rho2/c
+
+    vel1, _ = lambert_direct(pos1, pos2, t2 - t1, gm)
+    return Kepler.Cartesian(pos1, vel1, t1, gm)
 end
 
 # assumes 0-rev lambert solution
@@ -43,14 +55,3 @@ function herget_solve_with_partials(obs1, obs2, rho1, rho2, gm, c)
     return Kepler.Cartesian(pos1, vel1, t1, gm), dx1_dp1, dv1_dp2
 end
 
-# assumes 0-rev lambert solution
-function herget_solve(obs1, obs2, rho1, rho2, gm, c)
-    pos1 = rho1*obs1.angles + obs1.position
-    pos2 = rho2*obs2.angles + obs2.position
-
-    t1 = obs1.time - rho1/c
-    t2 = obs2.time - rho2/c
-
-    vel1, _ = lambert_direct(pos1, pos2, t2 - t1, gm)
-    return Kepler.Cartesian(pos1, vel1, t1, gm)
-end
