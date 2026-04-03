@@ -27,7 +27,7 @@ function propagate(state::Cartesian, t)
 end
 
 function propagate_stm(state::Cartesian, t)
-    posf, velf, stm = propagate_stm(state.position, state.velcoity, t - state.epoch, state.gm)
+    posf, velf, stm = propagate_stm(state.position, state.velocity, t - state.epoch, state.gm)
     return Cartesian(posf, velf, t, state.gm), stm
 end
 
