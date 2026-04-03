@@ -20,7 +20,7 @@ end
 
 function herget_residuals_with_partials(obs, orbit, dx1_dp1, dv1_dp2, c)
     resid, J_x, J_v = compute_residuals_with_partials(obs, orbit, c)
-    return resid, -hcat(J_x*dx1_dp1, J_v*dv1_dp2)
+    return resid, hcat(J_x*dx1_dp1, J_v*dv1_dp2)
 end
 
 # assumes 0-rev lambert solution
