@@ -36,7 +36,7 @@ function apparent_position(target_traj, obs_pos, t, c; lt_tol = 1e-15, max_iter 
 end
 
 function state_to_angles(x0::Kepler.Cartesian, t_obs, obs_pos, c)
-    traj = t -> Kepler.propagate(x0, t)[1]
+    traj = t -> Kepler.propagate(x0, t).position
     app, _, _  = apparent_position(traj, obs_pos, t_obs, c; max_iter = 3)
     r    = norm(app)
     xhat = app/r
