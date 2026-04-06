@@ -55,7 +55,7 @@ function state_to_angles_with_partials(x0::Kepler.Cartesian, t_obs, obs_pos, c)
     
     dang_dx = (I3 - xhat*transpose(xhat))/r
 
-    return xhat, dang_dx*dxdx, dang_dx*dxdv
+    return xhat, hcat(dang_dx*dxdx, dang_dx*dxdv)
 end
 
 function compute_residuals(obs, x0::Kepler.Cartesian, c)
@@ -69,13 +69,13 @@ function compute_residuals(obs, x0::Kepler.Cartesian, c)
 end
 
 function compute_residuals_with_partials(obs, x0::Kepler.Cartesian, c)
-    ang, dang_dx0, dang_dv0 = state_to_angles_with_partials(x0, obs.time, obs.position, c)
+    ang, J1 = state_to_angles_with_partials(x0, obs.time, obs.position, c)
     # convert to long-lat + long-lat partials
     z = SVector{3}(0.0, 0.0, 1.0)
     # tangent basis
     a = normalize(cross(z, obs.angles))
     d = normalize(cross(obs.angles, a))
     # partials
-    J = transpose(hcat(a, d))
-    return -SVector{2}(dot(ang, a), dot(ang, d)), -J*dang_dx0, -J*dang_dv0
+    J2 = -transpose(hcat(a, d))
+    return -SVector{2}(dot(ang, a), dot(ang, d)), -J2*J1
 end

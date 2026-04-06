@@ -13,14 +13,8 @@ end
 
 """ returns an iterator over the observations, each returning a tuple of ((dra, ddec), H)
 """
-function herget_kernel(rho12, observations, obs1, obs2, gm, c)
-    orbit, dx1_dp1, dv1_dp2 = herget_solve_with_partials(obs1, obs2, rho12..., gm, c)
-    return Iterators.map(o -> herget_residuals_with_partials(o, orbit, dx1_dp1, dv1_dp2, c), observations)
-end
-
-function herget_residuals_with_partials(obs, orbit, dx1_dp1, dv1_dp2, c)
-    resid, J_x, J_v = compute_residuals_with_partials(obs, orbit, c)
-    return resid, hcat(J_x*dx1_dp1, J_v*dv1_dp2)
+function herget_kernel(rho12, observations, obs1, obs2, gm, c; del = 0.001)
+    return Iterators.map(o -> herget_residuals_with_partials(o, obs1, obs2, rho12[1], rho12[2], gm, c; del = del), observations)
 end
 
 # assumes 0-rev lambert solution
@@ -31,7 +25,7 @@ function herget_solve(obs1, obs2, rho1, rho2, gm, c)
     t1 = obs1.time - rho1/c
     t2 = obs2.time - rho2/c
 
-    vel1, _ = lambert_direct(pos1, pos2, t2 - t1, gm)
+    vel1, _ = Kepler.lambert_direct(pos1, pos2, t2 - t1, gm)
     return Kepler.Cartesian(pos1, vel1, t1, gm)
 end
 
@@ -43,10 +37,10 @@ function herget_solve_with_partials(obs1, obs2, rho1, rho2, gm, c)
     t1 = obs1.time - rho1/c
     t2 = obs2.time - rho2/c
 
-    vel1, vel2 = lambert_direct(pos1, pos2, t2 - t1, gm)
+    vel1, vel2 = Kepler.lambert_direct(pos1, pos2, t2 - t1, gm)
 
     # build the jacobian
-    _, _, stm21 = propagate_stm(pos2, vel2, t1 - t2, gm)
+    _, _, stm21 = Kepler.propagate_stm(pos2, vel2, t1 - t2, gm)
     dx1_dp1 = normalize(rho1*obs1.angles)
     dx2_dp2 = normalize(rho2*obs2.angles)
 
@@ -55,3 +49,29 @@ function herget_solve_with_partials(obs1, obs2, rho1, rho2, gm, c)
     return Kepler.Cartesian(pos1, vel1, t1, gm), dx1_dp1, dv1_dp2
 end
 
+function herget_residuals(obs, obs1, obs2, rho1, rho2, gm, c)
+    orbit = herget_solve(obs1, obs2, rho1, rho2, gm, c)
+    resid = compute_residuals(obs, orbit, c)
+    return resid
+end
+
+function herget_residuals_with_partials(obs, obs1, obs2, rho1, rho2, gm, c; del = 1e-3)
+    orbit = herget_solve(obs1, obs2, rho1, rho2, gm, c)
+    resid = compute_residuals(obs, orbit, c)
+
+    o11 = herget_solve(obs1, obs2, rho1 + del, rho2, gm, c) 
+    o12 = herget_solve(obs1, obs2, rho1 - del, rho2, gm, c) 
+    o21 = herget_solve(obs1, obs2, rho1, rho2 + del, gm, c)
+    o22 = herget_solve(obs1, obs2, rho1, rho2 - del, gm, c)
+
+    r11 = compute_residuals(obs, o11, c)
+    r12 = compute_residuals(obs, o12, c)
+    r21 = compute_residuals(obs, o21, c)
+    r22 = compute_residuals(obs, o22, c)
+
+    J1 = r11 - r12
+    J2 = r21 - r22
+    J  = hcat(J1, J2) ./ (2del)
+
+    return resid, -J
+end
