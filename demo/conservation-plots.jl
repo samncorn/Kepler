@@ -53,7 +53,7 @@ items = collect(Iterators.product(enumerate(e), enumerate(dt)))
 edt = Iterators.product(e, dt)
 
 # @showprogress Threads.@threads for ((i, ei), (j, dti)) in items
-@showprogress for (ii, ((i, ei), (j, dti))) in enumerate(items)
+@showprogress Threads.@threads for (ii, ((i, ei), (j, dti))) in collect(enumerate(items))
     # @info "iteration $(ii)/$(length(items))"
     # construct the periapse state
     pos = SVector{3}(1.0, 0.0, 0.0)
@@ -125,8 +125,8 @@ edt = Iterators.product(e, dt)
     Ef = dot(vel, vel)/2 - gm/norm(pos)
 
     # M_h[i, j] = (hf - h0)/h0 
-    M_h[i, j] = (hf - h0)
-    M_E[i, j] = (Ef - E0)
+    M_h[i, j] = (hf - h0)/(h0 + eps())
+    M_E[i, j] = abs(E0) > 1e-14 ? (Ef - E0)/E0 : Ef - E0
 
     # M_h[i, j] = hf - h0
     # M_E[i, j] = Ef - E0
@@ -148,7 +148,7 @@ ax = [
     Axis(f[2, 2][1, 1], title = "E error sign", xlabel = "eccentricity", ylabel = "dt/T"),
     ]
 hm1 = heatmap!(ax[1], e, dt, M_h; colorrange = (1e-18, maximum(M_h)), colorscale = log10)
-hm2 = heatmap!(ax[2], e, dt, M_E; colorrange = (1e-18, maximum(M_E)), colorscale = log10)
+hm2 = heatmap!(ax[2], e, dt, M_E; colorrange = (1e-18, 1e-12), colorscale = log10)
 hm3 = heatmap!(ax[3], e, dt, M_h_sign)
 hm4 = heatmap!(ax[4], e, dt, M_E_sign)
 

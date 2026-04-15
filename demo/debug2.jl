@@ -28,10 +28,15 @@ using Profile
 # dt0 = 3.653014713476504
 # gm = 0.00029584
 
-pos0 = [-0.8823881190038564, 2.750761917003355, 0.0]
-vel0 = [-0.011570108698449117, 0.008474907261080352, 0.0]
-dt0  = -1.826507356738252
-gm   = 0.00029584
+# pos0 = [-0.8823881190038564, 2.750761917003355, 0.0]
+# vel0 = [-0.011570108698449117, 0.008474907261080352, 0.0]
+# dt0  = -1.826507356738252
+# gm   = 0.00029584
+
+pos0 = [1.0, 0.0, 0.0]
+vel0 = [-1.1053475803001587, 0.3031837873391892, 0.5793162620056317]
+dt0  = 1.8226338221316305
+gm   = 1.0
 
 DU = norm(pos0)
 TU = sqrt(DU^3/abs(gm))
@@ -50,7 +55,8 @@ p1 = (x = x1, y = y1, dy = r1)
 
 # initial guess
 # x2     = Kepler.kepler_guess_canonical(pos, vel, dt)
-x2     = dt
+# x2     = dt
+x2 = dt + (s0/2)*dt^2
 y2, r2 = Kepler.universal_kepler2_canonical(x2, b, s0)
 y2    -= dt
 p2 = (x = x2, y = y2, dy = r2)
@@ -103,16 +109,15 @@ v_x = []
 for i in 1:10
     println(i)
     signab = sign((p1.y - p2.y)/(p1.x - p2.x))
-
     if signab == sign(p1.dy) && signab == sign(p2.dy) && signab == sign(p3.dy) && p1.y != p3.y
         println("interpolating")
         # derivatives are well suited for inverse interpolation
-        if p2.y != p3.y
+        # if p2.y != p3.y
             # need unique values
-            x = Kepler.flmsm1_step(p1, p2, p3)
-        else
+            # x = Kepler.flmsm1_step(p1, p2, p3)
+        # else
             x = Kepler.flmsm1_step(p1, p3)
-        end
+        # end
     else
         # attempt newton's method
         println("newton step")
@@ -120,11 +125,18 @@ for i in 1:10
     end
 
     # if we have stepped outside the bracket, reflect
-    if (x < p3.x && x < p2.x) || (x > p3.x && x > p2.x) # || abs((x - p3.x)/p3.x) < 2eps(p3.x)
-        println("bisecting")
+    # if (x < p3.x && x < p2.x) || (x > p3.x && x > p2.x) # || abs((x - p3.x)/p3.x) < 2eps(p3.x)
+    #     println("bisecting")
+    #     # x = (p2.x + p3.x)/2
+    #     x = 2(p3.x) - x
+    # end
+    # if we have stepped outside the bracket, bisect
+    if (x < p3.x && x < p2.x) || (x > p3.x && x > p2.x)
         # x = (p2.x + p3.x)/2
-        x = 2(p3.x) - x
+        x = p2.x + (p3.x - p2.x)/2
     end
+
+
     dx = x - p3.x
     println("p1 = $p1")
     println("p2 = $p2")
@@ -145,6 +157,10 @@ for i in 1:10
     println("   new y = $y")
 
     if x == p3.x || x == p2.x 
+        break
+    end
+
+    if y == 0
         break
     end
 

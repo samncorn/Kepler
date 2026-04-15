@@ -78,6 +78,7 @@ function universal03(b, s)
         z  = sqrt(b)*s
         s2 = sin(z/2)
         c2 = cos(z/2)
+        # c2 = sqrt(1.0 - s2^2)
 
         U1 = 2s2*c2/sqrt(b)
         U2 = 2s2*s2/b
@@ -89,6 +90,7 @@ function universal03(b, s)
         z  = sqrt(-b)*s
         s2 = sinh(z/2)
         c2 = cosh(z/2)
+        # c2 = sqrt(1.0 + s2^2)
 
         U1 = 2s2*c2/sqrt(-b)
         U2 = -2s2*s2/b
@@ -106,6 +108,7 @@ function universal05(b, s)
         z  = sqrt(b)*s
         s2 = sin(z/2)
         c2 = cos(z/2)
+        # c2 = sqrt(1.0 - s2^2)
 
         U1 = 2s2*c2/sqrt(b)
         U2 = 2s2*s2/b
@@ -119,6 +122,7 @@ function universal05(b, s)
         z  = sqrt(-b)*s
         s2 = sinh(z/2)
         c2 = cosh(z/2)
+        # c2 = sqrt(1.0 + s2^2)
 
         U1 = 2s2*c2/sqrt(-b)
         U2 = -2s2*s2/b

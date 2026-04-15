@@ -68,6 +68,10 @@ end
 See Battin 9.7
 """
 function propagate_stm(pos, vel, dt, gm)
+    if dt == 0
+        return pos, vel
+    end
+
     DU = norm(pos)*sign(gm)
     TU = sqrt(DU^3/gm)
 
@@ -82,12 +86,12 @@ function propagate_stm(pos, vel, dt, gm)
     x = solve_kepler_universal_normalized_new(pos, vel, dt)
 
     # compute f and g functions
-    _, c1, c2, c3, c4, c5 = stumpff5(b*x^2)
-    # _, U1, U2, _, U4, U5 = universal05(b, x)
-    U1 = x*c1
-    U2 = x^2*c2
-    U4 = x^4*c4
-    U5 = x^5*c5
+    # _, c1, c2, c3, c4, c5 = stumpff5(b*x^2)
+    _, U1, U2, _, U4, U5 = universal05(b, x)
+    # U1 = x*c1
+    # U2 = x^2*c2
+    # U4 = x^4*c4
+    # U5 = x^5*c5
 
     # we use the modified versions of f and dg given by Rein et al
     f = -U2
@@ -100,8 +104,8 @@ function propagate_stm(pos, vel, dt, gm)
     velf = df*pos + dg*vel + vel
 
     # compute the partials (Battin)
-    C  = (x^2)*((x^3)*(3c5 - c4) - dt*c2)
-    # C    = 3U5 - x*U4 - dt*U2
+    # C  = (x^2)*((x^3)*(3c5 - c4) - dt*c2)
+    C    = 3U5 - x*U4 - dt*U2
     dxdx = stm_pos_pos0_normalized(pos, posf, vel, velf, rf, f, C)     # units of DU/DU = 1
     dxdv = stm_pos_vel0_normalized(pos, posf, vel, velf, f, g, C)*TU   # Units of TU
     dvdx = stm_vel_pos0_normalized(pos, posf, vel, velf, rf, df, C)/TU # Units of 1/TU
@@ -158,24 +162,16 @@ function solve_kepler_universal_normalized_new(pos, vel, dt)
     # s1 = s0
     p1 = (x = x1, y = y1, dy = r1)
 
-    if y1 == 0
-        return x1
-    end
-
     # x2     = kepler_guess_canonical(pos, vel, dt)
-    # x2     = dt
+    x2     = dt
     # x2 = -dt/(1.0 - dt*s0/2)
-    x2 = dt + (s0/2)*dt^2
+    # x2 = dt + (s0/2)*dt^2
     y2, r2 = universal_kepler2_canonical(x2, b, s0)
     y2    -= dt
     p2 = (x = x2, y = y2, dy = r2)
 
-    if y2 == 0
-        return x2
-    end
-
     # bracket
-    while sign(p2.y) == sign(p1.y)
+    while sign(p2.y) == sign(p1.y) && isfinite(p1.y)
         if p2.y == Inf
             # println("halving")
             x2 /= 2
@@ -196,34 +192,13 @@ function solve_kepler_universal_normalized_new(pos, vel, dt)
         end
     end
 
-    # force a newton step to overshoot
-    # x2 = (x2*r2 + 2abs(y2))/r2
-    # x2    -= 2sign(dt)*abs(y2)/r2
-    # y2, r2 = universal_kepler2_canonical(x2, b, s0)
-    # y2    -= dt
-    # p2 = (x = x2, y = y2, dy = r2)
-
-    if sign(y2) == sign(y1)
-        throw("failed to bracket (y = $y2)")
+    if y2 == 0
+        return x2
     end
-    
-    if p1.y == 0
-        return p1.x
-    end
-    
-    if p2.y == 0
-        return p2.x
-    end
-
-    # if sign(y2) == sign(y1)
-    #     throw("NO BRACKET")
-    # end
 
     if y2 == Inf || isnan(y2)
         throw("OVERFLOW")
     end
-
-    # println("found bracket")
 
     # one manual inverse interpolation step
     x = flmsm1_step(p1, p2)
@@ -249,7 +224,7 @@ function solve_kepler_universal_normalized_new(pos, vel, dt)
     # TODO: Try to prove convergence?
     # TODO: 2nd derivative methods
     i = 0
-    x = NaN # just it initialize the loop
+    # x = NaN # just to initialize the loop
     while p1.x != x && p2.x != x && i < 1_000
     # while abs(y) > 1e-12 && i < 1_000
         i += 1
@@ -281,7 +256,7 @@ function solve_kepler_universal_normalized_new(pos, vel, dt)
         end
 
         if isnan(x)
-            throw("NAN")
+            throw("NAN x1 = $(p1.x) x2 = $(p2.x) y1 = $(p1.y) y2 = $(p2.y) x3 = $(p3.x) y3 = $(p3.y)")
         end
         y, r = universal_kepler2_canonical(x, b, s0)
         y   -= dt

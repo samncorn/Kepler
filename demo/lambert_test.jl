@@ -5,7 +5,8 @@ using Printf
 using BenchmarkTools
 using ProgressMeter
 
-@showprogress for i in 1:100
+failed = []
+for i in 1:100
     pos1 = SA[1.0, 0.0, 0.0]
     vel1 = SA[rand(3)...]
     # dt = rand()*2pi
@@ -30,43 +31,79 @@ using ProgressMeter
 
     vel1_l, velf_l = Kepler.lambert_direct(pos1, posf, dt, gm)
 
+    # success = false
+    # dvmin = Inf
+    # for (vel1_l, velf_l) in Kepler.lambert(pos1, posf, dt, gm)
+    #     dvmin = min(dvmin, norm(vel1_l - vel1))
+    #     # if norm(vel1_l - vel1) < 1e-10
+    #         # @printf "dt = %.3e, e = %.3e, |dv1| = %.3e, |dv2| = %.3e\n" dt e norm(vel1_l - vel1)/norm(vel1) norm(velf_l - velf)/norm(velf)
+    #         # j += 1
+            
+    #         # success = true
+    #     # end
+    # end
+    # println(dvmin)
+
+    # if !success
+    #     println(i)
+    # end
+
+    # a = 1/(2/norm(pos1) - dot(vel1_l, vel1_l)/gm)
+    # hvec = cross(pos1, vel1_l)
+    # evec = cross(vel1_l, hvec)/gm - normalize(pos1)
+    # e = norm(evec)
+
     # println(vel1_l - vel1)
     # println(velf_l - velf)
-    @printf "dt = %.3e, a = %.3e, |dv1| = %.3e, |dv2| = %.3e\n" dt a norm(vel1_l - vel1) norm(velf_l - velf)
+    if norm(vel1_l - vel1) > 1e-10
+        push!(failed, (pos1, posf, dt, vel1, velf))
+        @printf "dt = %.3e, e = %.3e, |dv1| = %.3e, |dv2| = %.3e\n" dt e norm(vel1_l - vel1)/norm(vel1) norm(velf_l - velf)/norm(velf)
+    end
 end
 
 
-pos1 = SA[1.0, 0.0, 0.0]
-vel1 = SA[0.0, 0.0, 0.0]
 
-gm = 1.0
-
-a = 1/(2/norm(pos1) - dot(vel1, vel1)/gm)
-
-hvec = cross(pos1, vel1)
-evec = cross(vel1, hvec)/gm - normalize(pos1)
-e = norm(evec)
 
 # unroll
-begin
-pos1 = SA[1.0, 0.0, 0.0]
-vel1 = SA[rand(3)...]
-# dt = rand()*2pi/10
+pos1, pos2, dt, vel1, vel2 = failed[1]
 gm = 1.0
 
-a = 1/(2/norm(pos1) - dot(vel1, vel1)/gm)
+vel1l, vel2l = Kepler.lambert_direct(pos1, pos2, dt, gm)
 
+pos_test, vel_test = Kepler.propagate(pos1, vel1l, dt, gm)
+pos_test - pos2
+vel_test - vel2l
+# a valid solution
+
+# for (vel1l, vel2l)
+# collect(Kepler.lambert(pos1, vel1l, dt, gm))
+
+pos_test, vel_test = Kepler.propagate(pos1, vel1, dt, gm)
+pos_test - pos2
+vel_test - vel2
+
+# original orbit
+a = 1/(2/norm(pos1) - dot(vel1, vel1)/gm)
 hvec = cross(pos1, vel1)
 evec = cross(vel1, hvec)/gm - normalize(pos1)
 e = norm(evec)
-
 P = 2pi*sqrt(a^3/gm)
+dt/P
 
-dt = rand()*P
 
-@printf "%.3e %.3e %.3e\n" a e dt/P
+# found orbit
+a = 1/(2/norm(pos1) - dot(vel1l, vel1l)/gm)
+hvec = cross(pos1, vel1l)
+evec = cross(vel1l, hvec)/gm - normalize(pos1)
+e = norm(evec)
+P = 2pi*sqrt(a^3/gm)
+dt/P
 
-pos2, vel2 = Kepler.propagate(pos1, vel1, dt, gm)
+# dt = rand()*P
+
+# @printf "%.3e %.3e %.3e\n" a e dt/P
+
+# pos2, vel2 = Kepler.propagate(pos1, vel1, dt, gm)
 
 c_vec = pos2 - pos1
 c  = norm(c_vec)
@@ -114,6 +151,7 @@ while abs(dx1) != abs(dx) && i < 100
     i += 1
     Ti, dT1, dT2, dT3 = Kepler.lambert_tof_with_3_derivatives(x, l, 0)
     Ti -= T
+    dx1 = dx
     dx  = Ti*(dT1^2 - Ti*dT2/2)/(dT1*(dT1^2 - Ti*dT2) + (dT3*Ti^2)/6) # householder 3 iterations
     xp  = x
     x  -= dx
@@ -132,17 +170,96 @@ v1t =  g*o*(y + l*x)/r1
 v2t =  g*o*(y + l*x)/r2
 vel1l = v1r*ir1 + v1t*it1
 vel2l = v2r*ir2 + v2t*it2
-end
+# end
 
 norm(vel1 - vel1l)
 norm(vel2 - vel2l)
 @printf "%.3e %.3e %.3f\n" a e dt/P
 
-using CairoMakie
-f = Figure()
-ax = Axis(f[1, 1])
+com1 = Kepler.Cometary(Kepler.Cartesian(pos1, vel1,  0.0, gm))
+com2 = Kepler.Cometary(Kepler.Cartesian(pos1, vel1l, 0.0, gm))
 
-a = -1:0.01:2
-b = [Kepler.lambert_tof_with_3_derivatives(xi, l, 0)[1] for xi in a]
-lines!(ax, a, b)
+pos2_test, vel2_test = Kepler.propagate(pos1, vel1l, dt, gm)
+pos2_test - pos2
+(vel2_test - vel2l) ./ norm(vel2)
+
+pos2_test, vel2_test = Kepler.propagate(pos1, vel1, dt, gm)
+pos2_test - pos2
+vel2_test - vel2
+
+using GLMakie
+# plot
+pos1 = SA[1.0, 0.0, 0.0]
+vel1 = SA[rand(3)...]
+# dt = rand()*2pi
+gm = 1.0
+
+a = 1/(2/norm(pos1) - dot(vel1, vel1)/gm)
+
+P = if a > 0
+    2pi*sqrt(a^3/gm)
+else
+    rand()
+end
+dt = rand()*P*5
+
+dt/P
+
+pos2, vel2 = Kepler.propagate(pos1, vel1, dt, gm)
+
+solutions = collect(Kepler.lambert(pos1, pos2, dt, gm))
+
+f  = Figure()
+ax = Axis3(f[1, 1])
+
+# for vel in (vel1, vel1l)
+#     l = []
+#     for dti in (0.0001:0.0001:1) .* 10*dt
+#         posf, _ = Kepler.propagate(pos1, vel, dti, gm)
+#         push!(l, posf)
+#     end
+#     lines!(ax, l; color = :gray)
+#     # arrows3d!(ax, pos1, vel)
+# end
+
+# for (vel, lstyle) in ((vel1, :dash), (vel1l, :dot))
+for (vel, vel2) in solutions
+
+    pos2_test = Kepler.propagate(pos1, vel, dt, gm)[1]
+    println(pos2_test .- pos2)
+
+    l = []
+    tspan = (0.001:0.001:1) .* dt
+    for dti in tspan
+        posf, _ = try
+            Kepler.propagate(pos1, vel, dti, gm)
+        catch err
+            println(pos1)
+            println(vel)
+            println(dti)
+            throw(err)
+        end
+        push!(l, posf)
+    end
+    lines!(ax, l; color = tspan)
+    # arrows3d!(ax, pos1, vel)
+end
+
+lines!(ax, [SA[0.0, 0.0, 0.0], pos1]; color = "gray")
+lines!(ax, [SA[0.0, 0.0, 0.0], pos2]; color = "gray")
+
+scatter!(ax, [pos1, pos2])
+
+for _lim in (xlims!, ylims!, zlims!)
+    _lim(ax, -2, 2)
+end
+
 f
+
+# f = Figure()
+# ax = Axis(f[1, 1])
+
+# a = -1:0.01:2
+# b = [Kepler.lambert_tof_with_3_derivatives(xi, l, 0)[1] for xi in a]
+# lines!(ax, a, b)
+# f
