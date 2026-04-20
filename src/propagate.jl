@@ -36,6 +36,10 @@ end
 
 # NOTE: THE f used here is 1 - f', where f' is the traditional f
 function propagate(pos, vel, dt, gm)
+    if dt == 0
+        return pos, vel
+    end
+
     DU = norm(pos)
     TU = sqrt(DU^3/abs(gm))
     pos /= DU
