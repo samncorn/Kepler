@@ -4,9 +4,9 @@ The reference observations may be duplicates of the entries in list observations
 
 In the case of only 3 measurements, this method is very similar to a method laid out by Gooding, though with a slightly different formulation
 """
-function herget_iod(observations, obs1, obs2, rho1, rho2, gm, c)
+function herget_iod(observations, obs1, obs2, rho1, rho2, gm, c; kwargs...)
     x0 = SVector{2}(rho1, rho2)
-    (rho1f, rho2f), _, _ = Kepler.least_squares(x -> herget_kernel(x, observations, obs1, obs2, gm, c), x0)
+    (rho1f, rho2f), _, _ = Kepler.least_squares(x -> herget_kernel(x, observations, obs1, obs2, gm, c), x0; kwargs...)
 
     return herget_solve(obs1, obs2, rho1f, rho2f, gm, c)
 end

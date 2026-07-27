@@ -24,10 +24,11 @@ alp = 1/a
 alp = 2/sqrt(dot(pos, pos)) - dot(vel, vel)/gm
 # a   = 1/alp
 
-posf, velf = Kepler.propagate(pos, vel, dt, gm)
+# posf, velf = Kepler.propagate(pos, vel, dt, gm)
+posf, velf = Kepler.propagate_sheppard(pos, vel, dt, gm)
 statef = SPICE.prop2b(gm, [pos..., vel...], dt)
 
-# comapre with spice
+# compare with spice
 vcat(posf, velf) - statef
 
 # angular momentum conservation

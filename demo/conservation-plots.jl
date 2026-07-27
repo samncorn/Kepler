@@ -6,13 +6,7 @@ using ProgressMeter
 using SPICE
 using Logging
 
-# work in normalized coords
-# vary
-    # timestep
-    # eccentricity
-
 # for each combination, the timestep is used to advance the orbit repeatedly through a wide number of phases to get a good sample
-
 debug_logger = ConsoleLogger(stderr, Logging.Warn)
 global_logger(debug_logger)
 
@@ -39,21 +33,24 @@ y = (sqrt(5) - 1)/2
 gm = 0.0172^2
 
 function try_prop(pos, vel, dt, gm)
-    return Kepler.propagate(pos, vel, dt, gm)
-    # try
-    #     return Kepler.propagate(pos, vel, dt, gm)
-    #     # statef = SPICE.prop2b(gm, [pos..., vel...], dt)
-    #     # return statef[1:3], statef[4:6]
-    # catch _
-    #     throw((pos = pos, vel = vel, dt = dt, gm = gm))
-    # end
+    # return Kepler.propagate_sheppard(pos, vel, dt, gm)
+    try
+        # println((pos = pos, vel = vel, dt = dt, gm = gm))
+        return Kepler.propagate(pos, vel, dt, gm)
+        # statef = SPICE.prop2b(gm, [pos..., vel...], dt)
+        # return statef[1:3], statef[4:6]
+    catch _
+        throw((pos = pos, vel = vel, dt = dt, gm = gm))
+    end
 end
 
 items = collect(Iterators.product(enumerate(e), enumerate(dt)))
 edt = Iterators.product(e, dt)
 
-# @showprogress Threads.@threads for ((i, ei), (j, dti)) in items
+# @showprogress Threads.@threads for ((i, ei), (j, dti)) in item
 @showprogress Threads.@threads for (ii, ((i, ei), (j, dti))) in collect(enumerate(items))
+    # println(ii)
+
     # @info "iteration $(ii)/$(length(items))"
     # construct the periapse state
     pos = SVector{3}(1.0, 0.0, 0.0)
@@ -201,6 +198,4 @@ y, r = Kepler.universal_kepler2_canonical(x, b, s0)
 y   -= _dt
 p3   = (x = x, y = y, dy = r)
 
-
 x    = Kepler.flmsm1_step(p1, p2, p3)
-

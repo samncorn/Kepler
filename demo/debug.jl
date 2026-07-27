@@ -218,8 +218,8 @@ gm  = 398600.4415 # per vallado
 # @btime Kepler.propagate($pos, $vel, $dt, $gm)
 # @btime Kepler.propagate_with_partials($pos, $vel, $dt, $gm)
 
-# posf, velf, dxdx, dxdv, dvdx, dvdv = Kepler.propagate_with_partials(pos, vel, dt, gm)
-posf, velf = Kepler.propagate(pos, vel, dt, gm)
+posf, velf, stm = Kepler.propagate_with_partials(pos, vel, dt, gm)
+# posf, velf = Kepler.propagate_sheppard(pos, vel, dt, gm)
 # posf, velf = Kepler.propagate(pos, vel, -dt, gm)
 
 
@@ -253,8 +253,11 @@ log10(abs((E2 - E0)/E0))
 
 # check partials
 dxdx_auto = ForwardDiff.jacobian(x -> Kepler.propagate(x, vel, dt, gm)[1], pos)
-maximum(abs.(dxdx .- dxdx_auto)) 
-maximum(abs.(dxdx .- dxdx_auto) ./ dxdx) 
+stm.dX_dX0 .- dxdx_auto
+stm.dX_dX0
+dxdx_auto
+# maximum(abs.(stm.dX_dX0 .- dxdx_auto)) 
+# maximum(abs.(stm.dX_dX0 .- dxdx_auto) ./ stm.dX_dX0) 
 
 dxdv_auto = ForwardDiff.jacobian(x -> Kepler.propagate(pos, x, dt, gm)[1], vel)
 maximum(abs.(dxdv .- dxdv_auto))

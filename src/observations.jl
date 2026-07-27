@@ -49,10 +49,10 @@ function state_to_angles_with_partials(x0::Kepler.Cartesian, t_obs, obs_pos, c)
     r    = norm(app)
     xhat = app/r
 
-    _, stm = Kepler.propagate_stm(x0, lt)
+    _, stm = Kepler._propagate_with_partials(x0, lt)
     dxdx = stm.dX_dX0
     dxdv = stm.dX_dV0
-    
+
     dang_dx = (I3 - xhat*transpose(xhat))/r
 
     return xhat, hcat(dang_dx*dxdx, dang_dx*dxdv)
@@ -76,6 +76,38 @@ function compute_residuals_with_partials(obs, x0::Kepler.Cartesian, c)
     a = normalize(cross(z, obs.angles))
     d = normalize(cross(obs.angles, a))
     # partials
-    J2 = -transpose(hcat(a, d))
-    return -SVector{2}(dot(ang, a), dot(ang, d)), -J2*J1
+    J2 = transpose(hcat(a, d))
+    return -SVector{2}(dot(ang, a), dot(ang, d)), J2*J1
+end
+
+"""
+Weights need to be the STANDARD DEVIATIONS NOT the variances. Variances occur in the equations when
+the multiplications are carried out, but since I want the measurement weighting to be applied directly
+to the residuals, the standard deviation have to be supplied.
+"""
+function compute_weighted_residuals(obs, x0::Kepler.Cartesian, c)
+    ang = state_to_angles(x0, obs.time, obs.position, c)
+    # convert to long-lat
+    z = SVector{3}(0.0, 0.0, 1.0)
+    # tangent basis
+    a = normalize(cross(z, obs.angles))
+    d = normalize(cross(obs.angles, a))
+    return -obs.weight*SVector{2}(dot(ang, a), dot(ang, d))
+end
+
+"""
+Weights need to be the STANDARD DEVIATIONS NOT the variances. Variances occur in the equations when
+the multiplications are carried out, but since I want the measurement weighting to be applied directly
+to the residuals, the standard deviation have to be supplied.
+"""
+function compute_weighted_residuals_with_partials(obs, x0::Kepler.Cartesian, c)
+    ang, J1 = state_to_angles_with_partials(x0, obs.time, obs.position, c)
+    # convert to long-lat + long-lat partials
+    z = SVector{3}(0.0, 0.0, 1.0)
+    # tangent basis
+    a = normalize(cross(z, obs.angles))
+    d = normalize(cross(obs.angles, a))
+    # partials
+    J2 = transpose(hcat(a, d))
+    return -obs.weight*SVector{2}(dot(ang, a), dot(ang, d)), obs.weight*J2*J1
 end

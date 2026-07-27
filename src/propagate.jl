@@ -1,6 +1,6 @@
 """ partitioned Cartesian State Transition Matrix. 
 """
-struct STM{M}
+struct KeplerSTM{M}
     dX_dX0::M
     dX_dV0::M
     dV_dX0::M
@@ -11,7 +11,7 @@ end
 
 Note that the inverted STM is also the time reversed STM
 """
-function Base.inv(stm::STM)
+function Base.inv(stm::KeplerSTM)
     return STM(
          transpose(stm.dV_dV0),
         -transpose(stm.dX_dV0),
@@ -26,20 +26,13 @@ function propagate(state::Cartesian, t)
     return Cartesian(posf, velf, t, state.gm)
 end
 
-function propagate_stm(state::Cartesian, t)
-    posf, velf, stm = propagate_stm(state.position, state.velocity, t - state.epoch, state.gm)
+function _propagate_with_partials(state::Cartesian, t)
+    posf, velf, stm = propagate_with_partials(state.position, state.velocity, t - state.epoch, state.gm)
     return Cartesian(posf, velf, t, state.gm), stm
 end
 
-# adopt a autodiff like interface?
-# propagate(pos, )
-
 # NOTE: THE f used here is 1 - f', where f' is the traditional f
 function propagate(pos, vel, dt, gm)
-    if dt == 0
-        return pos, vel
-    end
-
     DU = norm(pos)
     TU = sqrt(DU^3/abs(gm))
     pos /= DU
@@ -71,11 +64,7 @@ end
 
 See Battin 9.7
 """
-function propagate_stm(pos, vel, dt, gm)
-    if dt == 0
-        return pos, vel
-    end
-
+function propagate_with_partials(pos, vel, dt, gm)
     DU = norm(pos)*sign(gm)
     TU = sqrt(DU^3/gm)
 
@@ -116,7 +105,7 @@ function propagate_stm(pos, vel, dt, gm)
     dvdv = stm_vel_vel0_normalized(pos, posf, vel, velf, rf, f, dg, C) # Units of DU/TU*TU/DU = 1
 
     # return posf*DU, velf*DU/TU, dxdx, dxdv*TU, dvdx/TU, dvdv
-    return posf*DU, velf*DU/TU, STM(dxdx, dxdv, dvdx, dvdv)
+    return posf*DU, velf*DU/TU, KeplerSTM(dxdx, dxdv, dvdx, dvdv)
 end
 
 # TODO: Add non-normalized variants
@@ -156,6 +145,9 @@ stm_vel_vel0_normalized(pos, posf, vel, velf, rf, f, dg, C) = (
 )
 
 function solve_kepler_universal_normalized_new(pos, vel, dt)
+    if dt == 0 # need a better way to handle (ie, mdofications to the rootfinder)
+        return 0.0
+    end
     s0 = dot(vel, pos)
     b  = 2.0 - dot(vel, vel)
 
@@ -201,7 +193,7 @@ function solve_kepler_universal_normalized_new(pos, vel, dt)
     end
 
     if y2 == Inf || isnan(y2)
-        throw("OVERFLOW")
+        throw(DomainError(y2, "The solution to kepler's equation is beyond the capabilities of the provided type"))
     end
 
     # one manual inverse interpolation step
@@ -245,9 +237,10 @@ function solve_kepler_universal_normalized_new(pos, vel, dt)
 
             # there is a numeric instability in the 3-point method that leads to a biased drift in some classes of orbits
             # the 2-point method seems to not encounter this, with only a modest hit to the convergence rate (2.73 vs 2.91)
-            # so it's likely not essential to 
-            # x = flmsm1_step(p1, p3)
             x = flmsm1_step(p1, p3)
+
+            # secant step
+            # x = p1.x + (p1.x - p2.x)/(p1.y - p2.y)*p1.y
         else
             # attempt newton's method
             x = (p3.x*p3.dy - p3.y)/p3.dy

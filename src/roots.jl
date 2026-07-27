@@ -1,3 +1,12 @@
+struct RootFindNode{T, N}
+    x::T
+    y::T
+    derivatives::NTuple{N, T}
+end
+
+RootFindNode(x::T, y::T) where {T} = RootFindNode(x, y, NTuple{0, T})
+RootFindNode(x::T, y::T, args...) where {T} = RootFindNode(x, y, args) # convenience function for packing high derivatives
+
 """ Chandrupatla's method, with an additional criteria taken from brent's method to guaruntee convergence
 """
 function chandrupatla_brent(f, bracket)

@@ -78,7 +78,6 @@ function universal03(b, s)
         z  = sqrt(b)*s
         s2 = sin(z/2)
         c2 = cos(z/2)
-        # c2 = sqrt(1.0 - s2^2)
 
         U1 = 2s2*c2/sqrt(b)
         U2 = 2s2*s2/b
@@ -90,7 +89,6 @@ function universal03(b, s)
         z  = sqrt(-b)*s
         s2 = sinh(z/2)
         c2 = cosh(z/2)
-        # c2 = sqrt(1.0 + s2^2)
 
         U1 = 2s2*c2/sqrt(-b)
         U2 = -2s2*s2/b
@@ -101,6 +99,31 @@ function universal03(b, s)
     else
         return 1.0, s, (s^2)/2, (s^3)/6
     end
+
+    # if b == 0
+    #     return 1.0, s, (s^2)/2, (s^3)/6
+    # end
+
+    # z = sqrt(b*s^2)
+    # s2, c2 = if b < 0
+    #     (
+    #         sinh(z/2),
+    #         cosh(z/2),
+    #     )
+    # else
+    #     (
+    #         sin(z/2),
+    #         cos(z/2),
+    #     )
+    # end
+
+    # U1 = 2s2*c2/sqrt(abs(b))
+    # U2 = 2s2*s2/abs(b)
+    # U0 = 1.0 - b*U2
+    # U3 = (s - U1)/b
+
+    # return U0, U1, U2, U3
+    
 end
 
 function universal05(b, s)
@@ -137,6 +160,31 @@ function universal05(b, s)
     end
 end
 
-# function universal_series(s, b)
+
+# function universal_battin(w, )
+#     z = 
+# end
+
+# function solve_kepler_battin(dt, r0, s0, b, gm)
+#     T = sqrt(gm/r0^3)*dt
+#     # constants
+#     psi0 = 
+#     gam0 =
+
+#     # initial guess
+#     phi0 = T - psi0*T^2/2 - (1 - gam0 - 3psi0^2)*T^3/6 + psi0*(10 - 9*gam0 - 15*psi0^2)*T^4/24
+#     w0   = if gam0 > 0
+#         u0 = 
+#         u1 =
+#         u1/u0
+#     elseif gam0 < 0
+#         u0 = 
+#         u1 =
+#         u1/u0
+#     else
+#         phi0
+#     end
+
+    
 
 # end

@@ -17,5 +17,6 @@ include("moid.jl")
 include("Lambert.jl")
 include("observations.jl")
 include("IOD.jl")
+include("differential_correction.jl")
 
 end # module
