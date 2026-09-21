@@ -260,14 +260,18 @@ dxdx_auto
 # maximum(abs.(stm.dX_dX0 .- dxdx_auto) ./ stm.dX_dX0) 
 
 dxdv_auto = ForwardDiff.jacobian(x -> Kepler.propagate(pos, x, dt, gm)[1], vel)
-maximum(abs.(dxdv .- dxdv_auto))
-maximum(abs.(dxdv .- dxdv_auto) ./ dxdv)
+stm.dX_dV0 .- dxdv_auto 
+
+# maximum(abs.(dxdv .- dxdv_auto))
+# maximum(abs.(dxdv .- dxdv_auto) ./ dxdv)
 
 dvdx_auto = ForwardDiff.jacobian(x -> Kepler.propagate(x, vel, dt, gm)[2], pos)
-maximum(abs.(dvdx .- dvdx_auto) ./ dvdx)
+stm.dV_dX0 .- dvdx_auto 
+# maximum(abs.(dvdx .- dvdx_auto) ./ dvdx)
 
 dvdv_auto = ForwardDiff.jacobian(x -> Kepler.propagate(pos, x, dt, gm)[2], vel)
-maximum(abs.(dvdv .- dvdv_auto) ./ dvdv)
+stm.dV_dV0 .- dvdv_auto
+# maximum(abs.(dvdv .- dvdv_auto) ./ dvdv)
 
 # check orbital elements
 q, e, i, Om, w, tp = Kepler.cometary(pos, vel, dt, gm)

@@ -80,7 +80,7 @@ function propagate_with_partials(pos, vel, dt, gm)
 
     # compute f and g functions
     # _, c1, c2, c3, c4, c5 = stumpff5(b*x^2)
-    _, U1, U2, _, U4, U5 = universal05(b, x)
+    U0, U1, U2, _, U4, U5 = universal05(b, x)
     # U1 = x*c1
     # U2 = x^2*c2
     # U4 = x^4*c4
@@ -96,16 +96,40 @@ function propagate_with_partials(pos, vel, dt, gm)
     dg = -U2/rf
     velf = df*pos + dg*vel + vel
 
-    # compute the partials (Battin)
-    # C  = (x^2)*((x^3)*(3c5 - c4) - dt*c2)
-    C    = 3U5 - x*U4 - dt*U2
-    dxdx = stm_pos_pos0_normalized(pos, posf, vel, velf, rf, f, C)     # units of DU/DU = 1
-    dxdv = stm_pos_vel0_normalized(pos, posf, vel, velf, f, g, C)*TU   # Units of TU
-    dvdx = stm_vel_pos0_normalized(pos, posf, vel, velf, rf, df, C)/TU # Units of 1/TU
-    dvdv = stm_vel_vel0_normalized(pos, posf, vel, velf, rf, f, dg, C) # Units of DU/TU*TU/DU = 1
+    # compute the partials (Goodyear)
+    U  = U2*dt + (x*U4 - 3*U5)
+    X0 = transpose(hcat(pos, vel))
+    Xf = hcat(posf, velf)
+    acc0 = -normalize(pos)
+    accf = -posf/rf^3
+    
+    M1 = transpose(SMatrix{2, 2}(
+        -(df*U1 + f),
+        -df*U2,
+        f*U1,
+        f*U2,
+    ))
+    M2 = transpose(SMatrix{2, 2}(-df, -dg, f, g))*U2
+    M3 = transpose(SMatrix{2, 2}(
+        -df*(U0 + 1/rf + rf)/rf,
+        -(df*U1 + dg/rf)/rf,
+        df*U1 + f,
+        df*U2
+    ))
+    M4 = transpose(SMatrix{2, 2}(
+        -(df*U1 + dg/rf)/rf,
+        -dg*U1/rf,
+        df*U2,
+        dg*U2,
+    ))
 
+    dxdx =  (1.0 + f)*I + U*velf*transpose(acc0) + Xf*M1*X0
+    dxdv =          g*I - U*velf*transpose(vel)  + Xf*M2*X0
+    dvdx =         df*I + U*accf*transpose(acc0) + Xf*M3*X0
+    dvdv = (1.0 + dg)*I - U*accf*transpose(vel)  + Xf*M4*X0
+    
     # return posf*DU, velf*DU/TU, dxdx, dxdv*TU, dvdx/TU, dvdv
-    return posf*DU, velf*DU/TU, KeplerSTM(dxdx, dxdv, dvdx, dvdv)
+    return posf*DU, velf*DU/TU, KeplerSTM(dxdx, dxdv*TU, dvdx/TU, dvdv)
 end
 
 # TODO: Add non-normalized variants

@@ -1,14 +1,14 @@
-""" Fits a keplerian orbit to a set of optical measurements. 
+""" Fits a keplerian orbit to a set of optical measurements.
 
 Arguments
 =========
 observations
-    iterator of measurements. Each element must have the fields 
+    iterator of measurements. Each element must have the fields
         'angles'    ... cartesian unit vector of ra, dec
-        'time'      ... 
+        'time'      ...
         'position'  ... observer position
 init_state
-    Cartesian state describing the intitial guess of the orbit. Must have the fields 
+    Cartesian state describing the intitial guess of the orbit. Must have the fields
         'position'
         'velocity'
         'epoch'
@@ -20,7 +20,7 @@ c (defualt = Inf)
     speed of light, for light time correction.
 kwargs
     least sqaures key word arguments (see Kepler.least_squares)
-    
+
 """
 function fit_kepler(
     observations,
@@ -28,9 +28,15 @@ function fit_kepler(
     c = Inf,
     kwargs...
 )
-    # fdf = x -> Iterators.map(((t, o, ang),) -> kepler_resids_with_partials_analytic(x, t-t0, o, ang, gm, c), zip(times, obs, angles))
+    # TODO
+    # make generic over dynamical model
+        # the initial state needs a method that propagates to meas times (w/ partial derivatives)
+        #
+    # make generic over measurement type (optical, radar, etc)
+        # Don't actually need to implement anything other than optical for now, just iron out the interface
+
     x0 = reduce(vcat, (init_state.position, init_state.velocity))
-    xf, _, _ = Kepler.least_squares(x -> Iterators.map(
+    xf, chi2, i = Kepler.least_squares(x -> Iterators.map(
             o -> compute_weighted_residuals_with_partials(
                 o,
                 Kepler.Cartesian(
@@ -47,88 +53,112 @@ function fit_kepler(
         kwargs...
     )
 
-    # TODO: return post-fit covariance matrix?
-    return Kepler.Cartesian(
-        SVector{3}(xf[1], xf[2], xf[3]),
-        SVector{3}(xf[4], xf[5], xf[6]),
-        init_state.epoch,
+    cart = Kepler.Cartesian(
+        SVector{3}(xf[1], xf[2], xf[3]), 
+        SVector{3}(xf[4], xf[5], xf[6]), 
+        init_state.epoch, 
         init_state.gm
     )
-    # levenberg_marquardt(fdf, x0, weights; mu = mu, tol_cost_rel = tol, tol_cost_abs = tol, tol_param_rel = tol, tol_param_abs = tol, max_iter = max_iter, sink = sink)
+
+    # TODO: return post-fit covariance matrix?
+    return cart, chi2, i
 end
 
-mutable struct inlier_cache{T}
-    residuals::Vector{T}
-    inlier_mask::BitArray
-    iteration_rejected::Int
-end
-
-# inlier_cache(observations) = inlier_cache(zeros(), trues(length(observations)), 0, length(observations))
-
-"""
-"""
-# TODO: Hook in callbacks for setting rejection flags and checking mutually exclusive observations
-#       Residual comparisons require sparse pairwise combinations to be checked. So it is probably
-#       better to save residuals to a preallocated array on each iteration. This should have negligible 
-#       performance impact, since the write time should be negligible compared to the proapgation time,
-#       even for 2-body solves.
-#       Also, callbacks to terminate on 
-function fit_analytic_reject_outliers(
-    observations,
-    init_state;
-    c = Inf,
-    # inliers = inlier_cache(observations),
-    inlier_mask = trues(length(observations)),
-    resid_cut = 5.0, iteration_rejection_max = 10, min_inliers = 6,
-    kwargs...
+function fit_kepler_progressive_rejection(observations, initial_orbit; 
+    c = Inf, 
+    min_obs = 6, 
+    max_rej = 1, 
+    X2_rej = 8.0, 
+    X2_rec = 7.0, 
+    alpha = 0.25,
+    # beta = 0.1,
+    LS_kwargs...
 )
-    # # initialize the inlier set by computing the initial residuals
-    # x0 = reduce(vcat, (init_state.position, init_state.velocity))
-    # xf, _, _ = Kepler.least_squares(o -> Iterators.map(
-    #             ((i, x),) -> set_inlier!(inlier_mask, i, compute_weighted_residuals_with_partials(
-    #                     o,
-    #                     Kepler.Cartesian(
-    #                         SVector{3}[x[1], x[2], x[3]],
-    #                         SVector{3}[x[4], x[5], x[6]],
-    #                         init_state.epoch,
-    #                         init_state.gm
-    #                     ),
-    #                     c
-    #                 );
-    #                 resid_cut = resid_cut,
-    #                 iteration_rejection_max = iteration_rejection_max,
-    #                 min_inliers = min_inliers
-    #             ),
-    #             enumerate(observations)
-    #         ),
-    #     ),
-    #     x0;
-    #     kwargs...
-    # )
+    inliers         = trues(length(observations))
+    n_rem           = length(observations)
+    n_rej           = 0
+    X2_max          = 0.0
+    X2_max_running  = Inf
+    x0 = reduce(vcat, (initial_orbit.position, initial_orbit.velocity))
 
-    # # TODO: return post-fit covariance matrix?
-    # return Kepler.Cartesian(
-    #     SVector{3}[xf[1], xf[2], xf[3]],
-    #     SVector{3}[xf[4], xf[5], xf[6]],
-    #     init_state.epoch,
-    #     init_state.gm
-    # )
-end
+    j = 0
 
-function set_inlier!(inliers, i, resid_with_partial; resid_cut = 5.0, iteration_rejection_max = 10, min_inliers = 6)
-    if i == 1
-        inliers.iteration_rejected == 0
+    function get_resid(o, x)
+        return Kepler.compute_weighted_residuals_with_partials(
+            o,
+            Kepler.Cartesian(
+                SVector{3}(x[1], x[2], x[3]),
+                SVector{3}(x[4], x[5], x[6]),
+                initial_orbit.epoch,
+                initial_orbit.gm
+            ),
+            c
+        )
     end
 
-    if i == length(inliers.inlier_mask)
-        # run mutual exclusivity callback
+    function get_resid_masking(o, x, i)
+        dy, H = Kepler.compute_weighted_residuals_with_partials(
+            o,
+            Kepler.Cartesian(
+                SVector{3}(x[1], x[2], x[3]),
+                SVector{3}(x[4], x[5], x[6]),
+                initial_orbit.epoch,
+                initial_orbit.gm
+            ),
+            c
+        )
 
+        X2 = dot(dy, dy)
+
+        # X2_max_running = max(X2, X2_max_running)
+        
+        if inliers[i]
+            # check if we should exclude the obs
+            if X2 > max(X2_rej, alpha*X2_max) && n_rej < max_rej && n_rem > min_obs
+                n_rej += 1
+                n_rem -= 1
+                inliers[i] = false
+                # println("rejecting observation $i with X2 = $X2 > $(max(X2_rej, alpha*X2_max)) (n_rej = $n_rej, n_rem = $n_rem)")
+            end
+        else
+            # check whether we want to recover
+            if X2 < X2_rec
+                inliers[i] = true
+                n_rem += 1
+                # println("recovering observation $i (n_rem = $n_rem)")
+            end
+        end
+
+        if inliers[i]
+            return (dy, H)
+        else
+            # if at the end of the checks we are excluding this observation,
+            # zero it out
+            return(dy - dy, H - H)
+        end
     end
 
-    resid = resid_with_partial[1]
-    if dot(resid, resid) > resid_cut && sum(inliers.inlier_mask) > min_inliers
-        inliers.inlier_mask[i] = false
-        inliers.iteration_rejected += 1
+    function get_resids(x)
+        # reset the trackers 
+        n_rej -= n_rej
+        # X2_max          = X2_max_running
+        # X2_max_running  = 0.0
+        j += 1
+        X2_max = 0.0
+        
+        for (i, (dy, _)) in enumerate(Iterators.map(o -> get_resid(o, x), observations))
+            if inliers[i]
+                X2 = dot(dy, dy)
+                X2_max = max(X2_max, X2)
+            end
+        end
+        # println("iteration $j, max X2 = $X2_max")
+        
+        return Iterators.map(((i, o),) -> get_resid_masking(o, x, i), enumerate(observations))
     end
-    return resid_with_partial
+
+
+    xf, X2, i = Kepler.least_squares(get_resids, x0; LS_kwargs...)
+    cart = Kepler.Cartesian(SVector{3}(xf[1], xf[2], xf[3]), SVector{3}(xf[4], xf[5], xf[6]), initial_orbit.epoch, initial_orbit.gm)
+    return cart, X2, i, inliers
 end

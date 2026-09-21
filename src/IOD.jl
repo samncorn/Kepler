@@ -11,10 +11,21 @@ function herget_iod(observations, obs1, obs2, rho1, rho2, gm, c; kwargs...)
     return herget_solve(obs1, obs2, rho1f, rho2f, gm, c)
 end
 
+function herget_iod_auto(observations, obs1, obs2, rho1, rho2, gm, c; kwargs...)
+    x0 = SVector{2}(rho1, rho2)
+    (rho1f, rho2f), _, _ = Kepler.least_squares(x -> herget_kernel_auto(x, observations, obs1, obs2, gm, c), x0; kwargs...)
+
+    return herget_solve(obs1, obs2, rho1f, rho2f, gm, c)
+end
+
 """ returns an iterator over the observations, each returning a tuple of ((dra, ddec), H)
 """
 function herget_kernel(rho12, observations, obs1, obs2, gm, c; del = 0.001)
     return Iterators.map(o -> herget_residuals_with_partials(o, obs1, obs2, rho12[1], rho12[2], gm, c; del = del), observations)
+end
+
+function herget_kernel_auto(rho12, observations, obs1, obs2, gm, c)
+    return Iterators.map(o -> herget_residuals_with_partials_auto(o, obs1, obs2, rho12[1], rho12[2], gm, c; del = del), observations)
 end
 
 # assumes 0-rev lambert solution
@@ -74,4 +85,11 @@ function herget_residuals_with_partials(obs, obs1, obs2, rho1, rho2, gm, c; del 
     J  = hcat(J1, J2) ./ (2del)
 
     return resid, -J
+end
+
+function herget_residuals_with_partials_auto(obs, obs1, obs2, rho1, rho2, gm, c)
+    res(rho) = herget_residuals(obs, obs1, obs2, rho[1], rho[2], gm, c)
+    resid = res(SVector{2}(rho1, rho2))
+    J = ForwardDiff.jacobian(res, SVector{2}(rho1, rho2))
+    return resid, J
 end

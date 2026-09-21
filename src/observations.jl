@@ -29,7 +29,8 @@ function apparent_position(target_traj, obs_pos, t, c; lt_tol = 1e-15, max_iter 
     pos_app = try
         target_traj(t - lt) - obs_pos
     catch _
-        throw((dt = t-lt,))
+        # throw((dt = t-lt,))
+        throw("failed to retrieve position for light time delta = $(t - lt)")
     end
 
     return pos_app, t - lt, i

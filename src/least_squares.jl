@@ -1,10 +1,10 @@
 struct EmptySink end
 Base.push!(::EmptySink, ::Any) = nothing
 
-""" Uses Levenberg-Marquardt to solve the least squares problem
+""" Uses powell's dog-leg to solve the least squares problem
 
 fdf
-    function which returns a tuple of (function, jacobian). weighting must be done by fdf (applied to residuals and jacobian)
+    function which returns an iterator of tuples of (function eval, jacobian). weighting must be done by fdf (applied to residuals and jacobian)
 
 """
 function least_squares(fdf::F, x0;
@@ -120,9 +120,6 @@ function least_squares_kernel(fdf::F, x) where {F}
     HtH = zeros(T, D, D)
 
     for (dyi, Hi) in fdf(x)
-        if !inlier
-            continue
-        end
         J   += dot(dyi, dyi)
         Ht   = transpose(Hi)
         Hty += Htdyi
