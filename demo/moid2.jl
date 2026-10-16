@@ -1,15 +1,15 @@
-using Pkg; Pkg.activate()
+using Pkg; Pkg.activate(joinpath(@__DIR__))
 using Kepler
 using StaticArrays
 using LinearAlgebra
 using Printf
 using ProgressMeter
-using ForwardDiff
+# using ForwardDiff
 using CSV
 using DataFrames
 using Printf
-using NonlinearSolve
-using StatsBase
+# using NonlinearSolve
+# using StatsBase
 using GLMakie
 
 # using au, au/day
@@ -177,7 +177,7 @@ cases = [
 
 # orbit 1 for Wisniowsky tests
 lutetia = (q = 2.036, e = 0.164, i = 0.0, w = 250.227, Om = 0.0)
-for (i, row) in enumerate(eachrow(CSV.read(joinpath(@__DIR__, "orbit_tests.csv"), DataFrame)))
+for (i, row) in enumerate(eachrow(CSV.read(joinpath(@__DIR__, "demo/orbit_tests.csv"), DataFrame)))
     push!(cases, (
             tag = "Wisniowsky $i",
             rp1 = lutetia.q,
@@ -194,34 +194,34 @@ for (i, row) in enumerate(eachrow(CSV.read(joinpath(@__DIR__, "orbit_tests.csv")
         )
     )
 end
-
-function moid_scan(ellipse1::Kepler.Ellipse, ellipse2::Kepler.Ellipse; kwargs...)
-    # scanning pass, get initial guesses
-    _, u_min, v_min = Kepler.moid_scan_meridional(ellipse1, ellipse2)
-    sink = []
-    # run levenberg-marquardt on each guess, take the lowest
-    moid = Inf
-    vf   = Inf
-    uf   = Inf
-    _fdf = ((u, v),) -> Kepler.dists_with_partials(u, ellipse1, v, ellipse2)
-    for (v, u) in zip(v_min, u_min)
-        if isinf(v) || isinf(u)
-            continue
-        end
-
-        push!(sink, [])
-
-        (u, v), d, _ = Kepler.least_squares(_fdf, SVector{2}(u, v); sink = sink[end], kwargs...)
-
-        if d < moid
-            moid = d
-            vf  = v
-            uf  = u
-        end
-    end
-
-    return sqrt(moid), uf, vf, sink
-end
+# 
+# function moid_scan(ellipse1::Kepler.Ellipse, ellipse2::Kepler.Ellipse; kwargs...)
+#     # scanning pass, get initial guesses
+#     _, u_min, v_min = Kepler.moid_scan_meridional(ellipse1, ellipse2)
+#     sink = []
+#     # run levenberg-marquardt on each guess, take the lowest
+#     moid = Inf
+#     vf   = Inf
+#     uf   = Inf
+#     _fdf = ((u, v),) -> Kepler.dists_with_partials(u, ellipse1, v, ellipse2)
+#     for (v, u) in zip(v_min, u_min)
+#         if isinf(v) || isinf(u)
+#             continue
+#         end
+# 
+#         push!(sink, [])
+# 
+#         (u, v), d, _ = Kepler.least_squares(_fdf, SVector{2}(u, v); sink = sink[end], kwargs...)
+# 
+#         if d < moid
+#             moid = d
+#             vf  = v
+#             uf  = u
+#         end
+#     end
+# 
+#     return sqrt(moid), uf, vf, sink
+# end
 
 for (c, case) in enumerate(cases)
     orbit1 = Kepler.Cometary(case.rp1, case.e1, deg2rad(case.i1), deg2rad(case.Om1), deg2rad(case.w1), 0.0, 0.0, gm)
@@ -232,14 +232,17 @@ for (c, case) in enumerate(cases)
 
     # d, uf, vf = Kepler.moid_scan(ellipse1, ellipse2; mu = 100.0, tol = 1e-14)
     # d, uf, vf = Kepler.moid_simplex(ellipse1, ellipse2; tol1 = 1e-5, tol2 = 1e-10)
-    d, uf, vf = Kepler.moid_scan(ellipse1, ellipse2; uphill_tol = 0.0, max_iter = 200, mu_a = 10.0, mu_b = 100.0, mu0 = 1000.0, rel_tol = 1e-10, abs_tol = 1e-10)
+    # d, uf, vf = Kepler.moid_scan(ellipse1, ellipse2; uphill_tol = 0.0, max_iter = 200, mu_a = 10.0, mu_b = 100.0, mu0 = 1000.0, rel_tol = 1e-10, abs_tol = 1e-10)
+    d, uf, vf = Kepler.moid_scan(ellipse1, ellipse2; max_iter = 200, rel_tol = 1e-10, abs_tol = 1e-10)
     @printf "--- Case %d (%s) ---\n" c case.tag
-    @printf "  MOID          = %12.3e au (%12.3e km)\n" d d*au
-    @printf "  angle 1       = %11.6f deg (%11.6f deg) \n" rad2deg(uf) < 180 ? rad2deg(uf) : -(360 - rad2deg(uf)) rad2deg(uf)
-    @printf "  angle 2       = %11.6f deg (%11.6f deg) \n" rad2deg(vf) < 180 ? rad2deg(vf) : -(360 - rad2deg(vf)) rad2deg(vf)
-    @printf "  MOID - Ref    = %12.3e au\n" d - case.moid
-    @printf "  Relative diff = %12.3e\n" (d - case.moid)/case.moid
-    @printf "  rel err       = %12.3e\n" 2(d - case.moid)/(case.rp1 + case.rp2)
+    @printf "  MOID         = %12.3e au (%12.3e km)\n" d d*au
+    @printf "  angle 1      = %11.6f deg (%11.6f deg) \n" rad2deg(uf) < 180 ? rad2deg(uf) : -(360 - rad2deg(uf)) rad2deg(uf)
+    @printf "  angle 2      = %11.6f deg (%11.6f deg) \n" rad2deg(vf) < 180 ? rad2deg(vf) : -(360 - rad2deg(vf)) rad2deg(vf)
+    @printf "  absolute err = %12.3e au\n"  d - case.moid
+    @printf "  relative err = %12.3e\n"    (d - case.moid)/case.moid
+    @printf "  rel err 1    = %12.3e\n"    (d - case.moid)/case.rp1
+    @printf "  rel err 2    = %12.3e\n"    (d - case.moid)/case.rp2
+    println()
     println()
 end
 
@@ -248,7 +251,7 @@ end
 # for c in [5, 6, 7, 8]
 
 # begin
-c = 27
+c = 19
 case = cases[c]
 orbit1 = Kepler.Cometary(case.rp1, case.e1, deg2rad(case.i1), deg2rad(case.Om1), deg2rad(case.w1), 0.0, 0.0, gm)
 orbit2 = Kepler.Cometary(case.rp2, case.e2, deg2rad(case.i2), deg2rad(case.Om2), deg2rad(case.w2), 0.0, 0.0, gm)
@@ -271,17 +274,17 @@ end
 # Colorbar(f[1, 2], hm)
 # f
 
-dmin, u_min, v_min = Kepler.moid_scan_meridional(ellipse1, ellipse2)
+# dmin, u_min, v_min = Kepler.moid_scan_meridional(ellipse1, ellipse2)
 # sink = []
 # d, uf, vf = Kepler.moid_scan(ellipse1, ellipse2; mu = 100.0, tol = 1e-14, nu = 0.0, k = 1.0)
 # case.moid - d
 
-# sink = []
-d, uf, vf, sink = moid_scan(ellipse1, ellipse2; uphill_tol = 0.0, max_iter = 200, mu_a = 10.0, mu_b = 100.0, mu0 = 1000.0, rel_tol = 1e-10, abs_tol = 1e-10)
+sink = []
+d, uf, vf = Kepler.moid_scan(ellipse1, ellipse2; max_iter = 200, rel_tol = 1e-10, abs_tol = 1e-10, sink)
 # d, uf, vf = moid_simplex(ellipse1, ellipse2; sink = sink)
 d - case.moid
 
-length.(sink)
+length(sink)
 
 begin
 f  = Figure(size = (600, 500))
@@ -290,7 +293,7 @@ ax = Axis(f[1, 1], xlabel = "f₁ (deg)", ylabel = "f₂ (deg)", title = case.ta
     ytickalign = 1,
 )
 
-cmap   = :viridis
+cmap   = :cubehelix
 crange = (0, 5)
 
 contour!(ax, 
@@ -308,23 +311,23 @@ contour!(ax,
 )
 Colorbar(f[1, 2]; label = "|distance| (au)", colormap = cmap, colorrange = crange)
 
-markers = [:circle, :utriangle, :rect, :star5]
-iter = 1
-sc = for (s, m, u, v) in collect(zip(sink, markers, u_min, v_min))
-    if u == Inf || v == Inf
-        continue
-    end
-    x = [mod(rad2deg(p.x[1]), 360) for p in s]
-    y = [mod(rad2deg(p.x[2]), 360) for p in s]
-    t = eachindex(x) ./ length(x)
-    # scatterlines!(ax, x, y; markercolor = t, colormap = :plasma, marker = m)
-    sc = scatter!(ax, x, y; color = t, colormap = :plasma, marker = m, markersize = 10.0, label = "Guess $iter")
-    scatter!(ax, rad2deg(u), rad2deg(v); color = :red, markersize = 5.0)
-    iter += 1
-    sc
-end
+# markers = [:circle, :utriangle, :rect, :star5]
+# iter = 1
+# sc = for (s, m, u, v) in collect(zip(sink, markers, u_min, v_min))
+#     if u == Inf || v == Inf
+#         continue
+#     end
+#     x = [mod(rad2deg(x[1]), 360) for p in s]
+#     y = [mod(rad2deg(x[2]), 360) for p in s]
+#     t = eachindex(x) ./ length(x)
+#     # scatterlines!(ax, x, y; markercolor = t, colormap = :plasma, marker = m)
+#     sc = scatter!(ax, x, y; color = t, colormap = :plasma, marker = m, markersize = 10.0, label = "Guess $iter")
+#     scatter!(ax, rad2deg(u), rad2deg(v); color = :red, markersize = 5.0)
+#     iter += 1
+#     sc
+# end
 
-Colorbar(f[1, 3]; colormap = :plasma, label = "iteration (normalized)")
+# Colorbar(f[1, 3]; colormap = :plasma, label = "iteration (normalized)")
 
 scatter!(ax, mod(rad2deg(uf), 360), mod(rad2deg(vf), 360); color = :red, marker = :star5, label = "final MOID")
 xlims!(ax, 0, 360)
@@ -335,6 +338,7 @@ axislegend(ax; position = :lt)
 f
 # save("/Users/samuelcornwall/school/courses/AE498-pd/HW/completed/HW1_plots/$(case.tag).png", f)
 end
+f
 # end
 
 # (uf, vf) = Kepler.simplex_solve(((u, v),) -> norm(Kepler.dists_with_partials(u, ellipse1, v, ellipse2)[1]), SVector{2}(u_min[1], v_min[1]); sink = sink)

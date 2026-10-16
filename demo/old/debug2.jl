@@ -9,29 +9,16 @@ using Logging
 using Roots
 using BenchmarkTools
 # using ForwardDiff
-using CairoMakie
+# using CairoMakie
 
 import Test: @inferred
 using Profile
 # %%
 
-# debug_logger = ConsoleLogger(stderr, Logging.Debug)
-# global_logger(debug_logger)
 
-# test from vallado
-# pos0 = SA[1131.340, -2282.343, 6672.423]
-# vel0 = SA[-5.64305, 4.30333, 2.42879]
-# dt0  = 40.0*60.0
-# gm   = 398600.4415 # per vallado
-# pos0 = [0.9230171944187261, -0.39465472915751687, 0.0]
-# vel0 = [0.0065990688167711494, 0.016273154705785362, 0.0]
-# dt0 = 3.653014713476504
-# gm = 0.00029584
 
-# pos0 = [-0.8823881190038564, 2.750761917003355, 0.0]
-# vel0 = [-0.011570108698449117, 0.008474907261080352, 0.0]
-# dt0  = -1.826507356738252
-# gm   = 0.00029584
+
+
 
 pos0 = [1.0, 0.0, 0.0]
 vel0 = [-1.1053475803001587, 0.3031837873391892, 0.5793162620056317]
