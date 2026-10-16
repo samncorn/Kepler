@@ -159,6 +159,11 @@ function fit_kepler_progressive_rejection(observations, initial_orbit;
 
 
     xf, X2, i = Kepler.least_squares(get_resids, x0; LS_kwargs...)
-    cart = Kepler.Cartesian(SVector{3}(xf[1], xf[2], xf[3]), SVector{3}(xf[4], xf[5], xf[6]), initial_orbit.epoch, initial_orbit.gm)
+    cart = Kepler.Cartesian(
+        SVector{3}(xf[1], xf[2], xf[3]), 
+        SVector{3}(xf[4], xf[5], xf[6]), 
+        initial_orbit.epoch, 
+        initial_orbit.gm
+    )
     return cart, X2, i, inliers
 end

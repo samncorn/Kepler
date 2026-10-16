@@ -1,5 +1,5 @@
 function stumpff(z::T) where {T}
-    tol = 1.0
+    tol = 0.1
     if z > tol
         sin2 = sin(sqrt(z)/2)
         cos2 = cos(sqrt(z)/2)
@@ -30,7 +30,7 @@ function stumpff(z::T) where {T}
 end
 
 function stumpff5(z)
-    tol = 1.0
+    tol = 0.1
     if z > tol
         c0 = cos(sqrt(z))
         c1 = sin(sqrt(z))/sqrt(z)
@@ -97,6 +97,7 @@ function universal03(b, s)
 
         return U0, U1, U2, U3
     else
+        # would be good to evaluate the series to fixed number of terms
         return 1.0, s, (s^2)/2, (s^3)/6
     end
 
