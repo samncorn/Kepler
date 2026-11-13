@@ -38,7 +38,7 @@ function propagate(pos, vel, dt, gm)
 end
 
 function propagate_with_partials(pos, vel, dt, gm)
-    delp, delv, stm = kepler_step_with_stm(pos, dt, gm)
+    delp, delv, stm = kepler_step_with_stm(pos, vel, dt, gm)
     return pos + delp, vel + delv, stm
 end
 
@@ -303,6 +303,7 @@ function solve_universal_kepler(dt, r0, rdr0, b, gm)
 
     @assert isfinite(fl) "Failed to find a finite bracket given input type $(typeof(fh))"
     
+    # return find_zero(s -> universal_kepler(r0, rdr0, b, gm, s) - dt, (sl, sh), Roots.Chandrupatla())
     return chandrupatla(s -> universal_kepler(r0, rdr0, b, gm, s) - dt, (sl, sh))
     # function univ_kep2(s)
     #     t, r = universal_kepler_with_deriv(r0, rdr0, b, gm, s)

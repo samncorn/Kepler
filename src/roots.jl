@@ -5,7 +5,7 @@ function chandrupatla(f::F, bracket) where {F}
     y2 = f(x2)
     y3 = f(x3)
 
-    if !(sign(y1[1]*y2[1]) <= 0)
+    if !(sign(y2[1]*y3[1]) <= 0)
         throw("Not a bracket")
     end
 
